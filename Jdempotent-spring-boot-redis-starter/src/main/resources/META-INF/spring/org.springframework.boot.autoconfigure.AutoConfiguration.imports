@@ -1,0 +1,4 @@
+com.trendyol.jdempotent.redis.ApplicationConfig
+com.trendyol.jdempotent.redis.RedisConfigProperties
+com.trendyol.jdempotent.redis.RedisSentinelConfiguration
+com.trendyol.jdempotent.redis.RedisEnvironmentPostProcessor

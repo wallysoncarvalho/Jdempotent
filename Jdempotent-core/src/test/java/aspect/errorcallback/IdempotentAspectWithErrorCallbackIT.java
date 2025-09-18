@@ -9,18 +9,19 @@ import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {IdempotentAspectWithErrorCallbackIT.class, TestAopWithErrorCallbackContext.class, TestIdempotentResource.class, DefaultKeyGenerator.class, InMemoryIdempotentRepository.class})
 public class IdempotentAspectWithErrorCallbackIT {
 
@@ -33,6 +34,7 @@ public class IdempotentAspectWithErrorCallbackIT {
     @Autowired
     private DefaultKeyGenerator defaultKeyGenerator;
 
+    @SuppressWarnings("unused")
     @Autowired
     private TestCustomErrorCallback testCustomErrorCallback;
 
@@ -52,7 +54,7 @@ public class IdempotentAspectWithErrorCallbackIT {
         assertTrue(idempotentRepository.contains(idempotencyKey));
     }
 
-    @Test(expected = TestException.class)
+    @Test
     public void given_invalid_payload_when_trigger_aspect_then_throw_test_exception_from_custom_error_callback_and_remove_repository() throws NoSuchAlgorithmException {
         //given
         IdempotentTestPayload test = new IdempotentTestPayload();
@@ -61,10 +63,12 @@ public class IdempotentAspectWithErrorCallbackIT {
         wrapper.getNonIgnoredFields().put("name", "test");
         IdempotencyKey idempotencyKey = defaultKeyGenerator.generateIdempotentKey(new IdempotentRequestWrapper(wrapper), "TestIdempotentResource", new StringBuilder(), MessageDigest.getInstance(CryptographyAlgorithm.MD5.value()));
 
-        //when
-        testIdempotentResource.idempotentMethodReturnArg(test);
-
-        //then
+        //when & then
+        assertThrows(TestException.class, () -> 
+            testIdempotentResource.idempotentMethodReturnArg(test)
+        );
+        
+        // Verify repository state after exception
         assertFalse(idempotentRepository.contains(idempotencyKey));
     }
 }

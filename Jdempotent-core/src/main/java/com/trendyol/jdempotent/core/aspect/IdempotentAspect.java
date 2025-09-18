@@ -103,7 +103,7 @@ public class IdempotentAspect {
         this.annotationChain = fillChains();
     }
 
-    public IdempotentAspect(IdempotentRepository idempotentRepository, DefaultKeyGenerator keyGenerator) {
+    public IdempotentAspect(IdempotentRepository idempotentRepository, KeyGenerator keyGenerator) {
         this.idempotentRepository = idempotentRepository;
         this.keyGenerator = keyGenerator;
         this.annotationChain = fillChains();

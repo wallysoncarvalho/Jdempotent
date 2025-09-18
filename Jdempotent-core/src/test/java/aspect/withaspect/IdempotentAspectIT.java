@@ -10,21 +10,22 @@ import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.util.AopTestUtils;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {IdempotentAspectIT.class, TestAopContext.class, TestIdempotentResource.class, DefaultKeyGenerator.class, InMemoryIdempotentRepository.class})
 public class IdempotentAspectIT {
 
@@ -86,7 +87,7 @@ public class IdempotentAspectIT {
         assertTrue(idempotentRepository.contains(idempotencyKey));
     }
 
-    @Test(expected = TestException.class)
+    @Test
     public void given_invalid_payload_when_trigger_aspect_then_throw_test_exception_and_repository_will_be_empty() throws NoSuchAlgorithmException {
         //given
         IdempotentTestPayload test = new IdempotentTestPayload();
@@ -96,10 +97,12 @@ public class IdempotentAspectIT {
 
         IdempotencyKey idempotencyKey = defaultKeyGenerator.generateIdempotentKey(new IdempotentRequestWrapper(wrapper), "TestIdempotentResource", new StringBuilder(), MessageDigest.getInstance(CryptographyAlgorithm.MD5.value()));
 
-        //when
-        testIdempotentResource.idempotentMethodThrowingARuntimeException(test);
-
-        //then
+        //when & then
+        assertThrows(TestException.class, () -> 
+            testIdempotentResource.idempotentMethodThrowingARuntimeException(test)
+        );
+        
+        // Verify repository state after exception
         assertFalse(idempotentRepository.contains(idempotencyKey));
     }
 
@@ -120,23 +123,25 @@ public class IdempotentAspectIT {
         assertTrue(idempotentRepository.contains(idempotencyKey));
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test
     public void given_no_args_when_trigger_aspect_then_throw_illegal_state_exception() throws NoSuchAlgorithmException {
         //given
-        //when
-        //then
-        testIdempotentResource.idempotentMethodWithZeroParamater();
+        //when & then
+        assertThrows(IllegalStateException.class, () -> 
+            testIdempotentResource.idempotentMethodWithZeroParamater()
+        );
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test
     public void given_multiple_args_without_idempotent_request_annotation_when_trigger_aspect_then_throw_illegal_state_exception() throws NoSuchAlgorithmException {
         //given
         IdempotentTestPayload test = new IdempotentTestPayload();
         IdempotentTestPayload test1 = new IdempotentTestPayload();
 
-        //when
-        //then
-        testIdempotentResource.methodWithTwoParamater(test, test1);
+        //when & then
+        assertThrows(IllegalStateException.class, () -> 
+            testIdempotentResource.methodWithTwoParamater(test, test1)
+        );
     }
 
     @Test

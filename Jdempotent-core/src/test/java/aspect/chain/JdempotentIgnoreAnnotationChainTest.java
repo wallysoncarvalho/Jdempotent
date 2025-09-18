@@ -5,18 +5,18 @@ import com.trendyol.jdempotent.core.chain.JdempotentDefaultChain;
 import com.trendyol.jdempotent.core.chain.JdempotentIgnoreAnnotationChain;
 import com.trendyol.jdempotent.core.model.ChainData;
 import com.trendyol.jdempotent.core.model.KeyValuePair;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 public class JdempotentIgnoreAnnotationChainTest {
 
     @InjectMocks
@@ -25,7 +25,7 @@ public class JdempotentIgnoreAnnotationChainTest {
     @Mock
     private JdempotentDefaultChain jdempotentDefaultChain;
 
-    @Before
+    @BeforeEach
     public void setup(){
         jdempotentIgnoreAnnotationChain.next(jdempotentDefaultChain);
     }

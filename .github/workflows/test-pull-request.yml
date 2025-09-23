@@ -3,7 +3,7 @@ name: PR Tests (Secure)
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
-    branches: [ master, main ]
+    # branches: [ master, main ]
 
 jobs:
   # Check if the PR author has write permissions

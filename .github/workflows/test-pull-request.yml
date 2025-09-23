@@ -1,9 +1,15 @@
 name: PR Tests (Secure)
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-    # branches: [ master, main ]
+  push:
+    branches: [ master ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ master, main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Check if the PR author has write permissions

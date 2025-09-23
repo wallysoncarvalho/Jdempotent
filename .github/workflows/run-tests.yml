@@ -1,4 +1,4 @@
-name: PR Tests (Secure)
+name: Run Tests
 
 on:
   push:

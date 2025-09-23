@@ -28,7 +28,7 @@ public interface IdempotentRepository {
      * @param key
      * @param requestObject
      */
-    void store(IdempotencyKey key, IdempotentRequestWrapper requestObject);
+    void store(IdempotencyKey key, IdempotentRequestWrapper requestObject) throws RequestAlreadyExistsException;
 
 
     /**
@@ -38,7 +38,7 @@ public interface IdempotentRepository {
      * @param ttl
      * @param timeUnit
      */
-    void store(IdempotencyKey key, IdempotentRequestWrapper requestObject,Long ttl, TimeUnit timeUnit);
+    void store(IdempotencyKey key, IdempotentRequestWrapper requestObject,Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException;
 
 
     /**

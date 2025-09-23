@@ -6,8 +6,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class TestIdempotentResource {
+
+    public static Integer inc = 1;
+
     @JdempotentResource
     public void idempotentMethod(IdempotentTestPayload testObject) {
+        inc++;
     }
 
     @JdempotentResource(cachePrefix = "TestIdempotentResource")

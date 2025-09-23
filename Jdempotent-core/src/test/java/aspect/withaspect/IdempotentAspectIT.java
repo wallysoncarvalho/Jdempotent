@@ -21,6 +21,9 @@ import org.springframework.test.util.AopTestUtils;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -176,4 +179,42 @@ public class IdempotentAspectIT {
         assertTrue(idempotentRepository.contains(key));
     }
 
+    @Test
+    public void given_same_payload_when_called_concurrently_then_increment_should_happen_once() throws InterruptedException {
+        // reset static counter
+        TestIdempotentResource.inc = 1;
+
+        IdempotentTestPayload payload = new IdempotentTestPayload();
+        payload.setName("same");
+        payload.setEventId(42L);
+
+        int threads = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        CountDownLatch ready = new CountDownLatch(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threads);
+
+        for (int i = 0; i < threads; i++) {
+            executor.execute(() -> {
+                ready.countDown();
+                try {
+                    start.await();
+                    testIdempotentResource.idempotentMethod(payload);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        // synchronize start
+        ready.await();
+        start.countDown();
+        done.await();
+        executor.shutdown();
+
+        // should have incremented only once for the same request
+        assertEquals(2, (int) TestIdempotentResource.inc);
+    }
 }

@@ -11,9 +11,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-/**
- *
- */
 @Configuration
 @ConditionalOnProperty(
         prefix="jdempotent", name = "enable",
@@ -32,7 +29,6 @@ public class RedisSentinelConfiguration {
         org.springframework.data.redis.connection.RedisSentinelConfiguration sentinelConfiguration = new org.springframework.data.redis.connection.RedisSentinelConfiguration().master(redisProperties.getSentinelMasterName());
         
         redisProperties.getSentinelHostList().forEach(host -> {
-                System.out.println("hhost: " + host);
                 sentinelConfiguration.sentinel(host, redisProperties.getSentinelPort());
         });
 

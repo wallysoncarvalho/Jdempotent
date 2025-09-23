@@ -13,9 +13,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
 
-/**
- *
- */
 @Configuration
 @ConditionalOnProperty(prefix = "jdempotent", name = "enable", havingValue = "true", matchIfMissing = true)
 public class ApplicationConfig {
@@ -41,17 +38,5 @@ public class ApplicationConfig {
     public IdempotentAspect defaultGetIdempotentAspect(
             @Qualifier("trandyolRedisTemplate") RedisTemplate redisTemplate) {
         return new IdempotentAspect(new RedisIdempotentRepository(redisTemplate, redisProperties));
-    }
-
-    @Bean
-    @ConditionalOnBean(KeyGenerator.class)
-    @ConditionalOnMissingBean({ IdempotentAspect.class })
-    public IdempotentAspect idempotentAspectWithKeyGenerator(
-            @Qualifier("trandyolRedisTemplate") RedisTemplate redisTemplate,
-            KeyGenerator keyGenerator) {
-
-        var repository = new RedisIdempotentRepository(redisTemplate, redisProperties);
-
-        return new IdempotentAspect(repository, keyGenerator);
     }
 }

@@ -106,7 +106,7 @@ public class RedisIdempotentRepositoryTest {
     }
 
     @Test
-    public void given_idempotency_key_and_request_object_when_store_then_set_value_to_redis() {
+    public void given_idempotency_key_and_request_object_when_store_then_set_value_to_redis() throws Exception{
         //Given
         IdempotencyKey key = new IdempotencyKey("key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(123L);
@@ -123,7 +123,7 @@ public class RedisIdempotentRepositoryTest {
     }
 
     @Test
-    public void given_ttl_zero_when_store_then_set_value_to_redis_with_property_ttl() {
+    public void given_ttl_zero_when_store_then_set_value_to_redis_with_property_ttl() throws Exception{
         //Given
         IdempotencyKey key = new IdempotencyKey("key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(123L);

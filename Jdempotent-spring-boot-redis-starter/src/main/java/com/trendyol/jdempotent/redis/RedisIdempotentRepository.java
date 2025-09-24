@@ -1,6 +1,7 @@
 package com.trendyol.jdempotent.redis;
 
 import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
+import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
@@ -38,19 +39,36 @@ public class RedisIdempotentRepository implements IdempotentRepository {
 
     @Override
     public IdempotentResponseWrapper getResponse(IdempotencyKey idempotencyKey) {
-        return valueOperations.get(idempotencyKey.getKeyValue()).getResponse();
+        IdempotentRequestResponseWrapper wrapper = valueOperations.get(idempotencyKey.getKeyValue());
+        return wrapper != null ? wrapper.getResponse() : null;
     }
 
     @Override
     @Deprecated
-    public void store(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request) {
-        valueOperations.set(idempotencyKey.getKeyValue(), prepareValue(request), redisProperties.getExpirationTimeHour(), TimeUnit.HOURS);
+    public void store(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request) throws RequestAlreadyExistsException {
+        Boolean set = valueOperations.setIfAbsent(
+                idempotencyKey.getKeyValue(),
+                prepareValue(request),
+                redisProperties.getExpirationTimeHour(),
+                TimeUnit.HOURS
+        );
+        if (Boolean.FALSE.equals(set)) {
+            throw new RequestAlreadyExistsException();
+        }
     }
 
     @Override
-    public void store(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request, Long ttl, TimeUnit timeUnit) {
+    public void store(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
         ttl = ttl == 0 ? redisProperties.getExpirationTimeHour() : ttl;
-        valueOperations.set(idempotencyKey.getKeyValue(), prepareValue(request), ttl, timeUnit);
+        Boolean set = valueOperations.setIfAbsent(
+                idempotencyKey.getKeyValue(),
+                prepareValue(request),
+                ttl,
+                timeUnit
+        );
+        if (Boolean.FALSE.equals(set)) {
+            throw new RequestAlreadyExistsException();
+        }
     }
 
     @Override
@@ -62,9 +80,11 @@ public class RedisIdempotentRepository implements IdempotentRepository {
     @Deprecated
     public void setResponse(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request, IdempotentResponseWrapper response) {
         if (contains(idempotencyKey)) {
-            IdempotentRequestResponseWrapper requestResponseWrapper = valueOperations.get(idempotencyKey);
-            requestResponseWrapper.setResponse(response);
-            valueOperations.set(idempotencyKey.getKeyValue(), prepareValue(request), redisProperties.getExpirationTimeHour(), TimeUnit.HOURS);
+            IdempotentRequestResponseWrapper requestResponseWrapper = valueOperations.get(idempotencyKey.getKeyValue());
+            if (requestResponseWrapper != null) {
+                requestResponseWrapper.setResponse(response);
+                valueOperations.set(idempotencyKey.getKeyValue(), prepareValue(request), redisProperties.getExpirationTimeHour(), TimeUnit.HOURS);
+            }
         }
     }
 
@@ -81,8 +101,10 @@ public class RedisIdempotentRepository implements IdempotentRepository {
         if (contains(idempotencyKey)) {
             ttl = ttl == 0 ? redisProperties.getExpirationTimeHour() : ttl;
             IdempotentRequestResponseWrapper requestResponseWrapper = valueOperations.get(idempotencyKey.getKeyValue());
-            requestResponseWrapper.setResponse(response);
-            valueOperations.set(idempotencyKey.getKeyValue(), prepareValue(request, response), ttl, timeUnit);
+            if (requestResponseWrapper != null) {
+                requestResponseWrapper.setResponse(response);
+                valueOperations.set(idempotencyKey.getKeyValue(), prepareValue(request, response), ttl, timeUnit);
+            }
         }
     }
 
@@ -117,4 +139,3 @@ public class RedisIdempotentRepository implements IdempotentRepository {
         return new IdempotentRequestResponseWrapper(null);
     }
 }
-

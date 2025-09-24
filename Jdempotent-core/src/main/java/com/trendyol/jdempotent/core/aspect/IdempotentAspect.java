@@ -1,14 +1,11 @@
 package com.trendyol.jdempotent.core.aspect;
 
-import com.trendyol.jdempotent.core.annotation.*;
-import com.trendyol.jdempotent.core.callback.ErrorConditionalCallback;
-import com.trendyol.jdempotent.core.chain.*;
-import com.trendyol.jdempotent.core.constant.CryptographyAlgorithm;
-import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
-import com.trendyol.jdempotent.core.datasource.InMemoryIdempotentRepository;
-import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
-import com.trendyol.jdempotent.core.generator.KeyGenerator;
-import com.trendyol.jdempotent.core.model.*;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.TimeUnit;
+
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -17,12 +14,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.concurrent.TimeUnit;
-
+import com.trendyol.jdempotent.core.annotation.JdempotentId;
+import com.trendyol.jdempotent.core.annotation.JdempotentRequestPayload;
+import com.trendyol.jdempotent.core.annotation.JdempotentResource;
+import com.trendyol.jdempotent.core.callback.ErrorConditionalCallback;
+import com.trendyol.jdempotent.core.chain.AnnotationChain;
+import com.trendyol.jdempotent.core.chain.JdempotentDefaultChain;
+import com.trendyol.jdempotent.core.chain.JdempotentIgnoreAnnotationChain;
+import com.trendyol.jdempotent.core.chain.JdempotentNoAnnotationChain;
+import com.trendyol.jdempotent.core.chain.JdempotentPropertyAnnotationChain;
+import com.trendyol.jdempotent.core.constant.CryptographyAlgorithm;
+import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
+import com.trendyol.jdempotent.core.datasource.InMemoryIdempotentRepository;
+import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
+import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
+import com.trendyol.jdempotent.core.generator.KeyGenerator;
+import com.trendyol.jdempotent.core.model.ChainData;
+import com.trendyol.jdempotent.core.model.IdempotencyKey;
+import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
+import com.trendyol.jdempotent.core.model.KeyValuePair;
 
 /**
  * An aspect that used along with the @IdempotentResource annotation
@@ -142,11 +154,17 @@ public class IdempotentAspect {
 
         logger.debug(classAndMethodName + "saved to cache with {}", idempotencyKey);
         setJdempotentId(pjp.getArgs(),idempotencyKey.getKeyValue());
-        idempotentRepository.store(idempotencyKey, requestObject, customTtl, timeUnit);
+
         Object result;
         try {
+            idempotentRepository.store(idempotencyKey, requestObject, customTtl, timeUnit);
             result = pjp.proceed();
-        } catch (Exception e) {
+        } catch (RequestAlreadyExistsException e) {
+            logger.debug("Request already exists with {}", idempotencyKey);
+
+            // TODO: we should allow the client to change the message and http code or we could throw and let the client handle the exception
+            return "Request already in progress";
+        }catch (Exception e) {
             logger.debug(classAndMethodName + "deleted from cache with {} . Exception : {}", idempotencyKey, e);
             idempotentRepository.remove(idempotencyKey);
             throw e;

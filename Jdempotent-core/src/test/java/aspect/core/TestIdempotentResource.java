@@ -6,6 +6,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class TestIdempotentResource {
+
+    public static Integer inc = 1;
+
     @JdempotentResource
     public void idempotentMethod(IdempotentTestPayload testObject) {
     }
@@ -39,5 +42,11 @@ public class TestIdempotentResource {
     @JdempotentResource
     public String idempotencyKeyAsString(@JdempotentRequestPayload String idempotencyKey) {
         return idempotencyKey;
+    }
+
+    @JdempotentResource
+    public String idempotentMethodWithInc(IdempotentTestPayload testObject) {
+        inc++;
+        return "incremented " + inc;
     }
 }

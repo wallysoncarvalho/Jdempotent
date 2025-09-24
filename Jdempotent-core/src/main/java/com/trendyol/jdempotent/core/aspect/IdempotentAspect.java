@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
-import com.trendyol.jdempotent.core.annotation.JdempotentId;
+import com.trendyol.jdempotent.core.annotation.SetJdempotentId;
 import com.trendyol.jdempotent.core.annotation.JdempotentRequestPayload;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
 import com.trendyol.jdempotent.core.callback.ErrorConditionalCallback;
@@ -136,7 +136,7 @@ public class IdempotentAspect {
      * @throws Throwable
      */
     @Around("@annotation(com.trendyol.jdempotent.core.annotation.JdempotentResource)")
-    public Object execute(ProceedingJoinPoint pjp) throws Throwable {
+    public Object execute(ProceedingJoinPoint pjp) throws RequestAlreadyExistsException, Throwable {
         String classAndMethodName = generateLogPrefixForIncomingEvent(pjp);
         IdempotentRequestWrapper requestObject = findIdempotentRequestArg(pjp);
         String listenerName = ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(JdempotentResource.class).cachePrefix();
@@ -153,7 +153,8 @@ public class IdempotentAspect {
         }
 
         logger.debug(classAndMethodName + "saved to cache with {}", idempotencyKey);
-        setJdempotentId(pjp.getArgs(),idempotencyKey.getKeyValue());
+
+        setJdempotentId(pjp.getArgs(), idempotencyKey.getKeyValue());
 
         Object result;
         try {
@@ -260,7 +261,7 @@ public class IdempotentAspect {
                 wrapper.getNonIgnoredFields().put(declaredField.getName(), declaredField.get(args[0]));
             } else {
                 for (Annotation annotation : declaredField.getDeclaredAnnotations()) {
-                    if (annotation instanceof JdempotentId) {
+                    if (annotation instanceof SetJdempotentId) {
                         wrapper.getNonIgnoredFields().put(declaredField.getName(), declaredField.get(args[0]));
                         declaredField.set(args[0], idempotencyKey);
                     }

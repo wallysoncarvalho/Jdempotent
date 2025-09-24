@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
+import com.trendyol.jdempotent.core.annotation.JdempotentId;
 import com.trendyol.jdempotent.core.annotation.SetJdempotentId;
 import com.trendyol.jdempotent.core.annotation.JdempotentRequestPayload;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
@@ -140,7 +141,13 @@ public class IdempotentAspect {
         String classAndMethodName = generateLogPrefixForIncomingEvent(pjp);
         IdempotentRequestWrapper requestObject = findIdempotentRequestArg(pjp);
         String listenerName = ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(JdempotentResource.class).cachePrefix();
-        IdempotencyKey idempotencyKey = keyGenerator.generateIdempotentKey(requestObject, listenerName, stringBuilders.get(), messageDigests.get());
+        
+        String annotatedIdValue = findIdempotentKeyFromAnnotations(pjp);
+        
+        IdempotencyKey idempotencyKey = (annotatedIdValue != null && !annotatedIdValue.isEmpty())
+                ? new IdempotencyKey(annotatedIdValue)
+                : keyGenerator.generateIdempotentKey(requestObject, listenerName, stringBuilders.get(), messageDigests.get());
+        
         Long customTtl = ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(JdempotentResource.class).ttl();
         TimeUnit timeUnit = ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(JdempotentResource.class).ttlTimeUnit();
 
@@ -268,6 +275,62 @@ public class IdempotentAspect {
                 }
             }
         }
+    }
+
+    /**
+     * Determines idempotency key according to annotations on method parameters:
+     * 1) If a parameter is annotated with @JdempotentId, use that parameter's value as key
+     * 2) Else, if a parameter annotated with @JdempotentRequestPayload has a field annotated with @JdempotentId,
+     *    use that field's value
+     * 3) Else, return null (caller should fallback to key generator)
+     */
+    private String findIdempotentKeyFromAnnotations(ProceedingJoinPoint pjp) throws IllegalAccessException {
+        MethodSignature signature = (MethodSignature) pjp.getSignature();
+        Annotation[][] paramAnnotations = signature.getMethod().getParameterAnnotations();
+        Object[] args = pjp.getArgs();
+
+        // Rule 1: direct parameter annotated with @JdempotentId
+        for (int i = 0; i < args.length; i++) {
+            for (Annotation annotation : paramAnnotations[i]) {
+                if (annotation instanceof JdempotentId) {
+                    Object arg = args[i];
+                    return arg != null ? String.valueOf(arg) : null;
+                }
+            }
+        }
+
+        // Rule 2: payload parameter with a field annotated with @JdempotentId
+        for (int i = 0; i < args.length; i++) {
+            boolean isPayload = false;
+            for (Annotation annotation : paramAnnotations[i]) {
+                if (annotation instanceof JdempotentRequestPayload) {
+                    isPayload = true;
+                    break;
+                }
+            }
+            if (!isPayload) {
+                continue;
+            }
+
+            Object payload = args[i];
+            if (payload == null) {
+                continue;
+            }
+
+            Field[] fields = payload.getClass().getDeclaredFields();
+            for (Field field : fields) {
+                for (Annotation fieldAnnotation : field.getDeclaredAnnotations()) {
+                    if (fieldAnnotation instanceof JdempotentId) {
+                        field.setAccessible(true);
+                        Object value = field.get(payload);
+                        return value != null ? String.valueOf(value) : null;
+                    }
+                }
+            }
+        }
+
+        // Rule 3: fallback handled by caller
+        return null;
     }
 
     public IdempotentIgnorableWrapper getIdempotentNonIgnorableWrapper(Object args) throws IllegalAccessException {

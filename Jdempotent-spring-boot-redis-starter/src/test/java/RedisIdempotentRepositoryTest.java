@@ -1,9 +1,18 @@
-import com.trendyol.jdempotent.core.model.IdempotencyKey;
-import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
-import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
-import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
-import com.trendyol.jdempotent.redis.RedisConfigProperties;
-import com.trendyol.jdempotent.redis.RedisIdempotentRepository;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,18 +24,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.trendyol.jdempotent.core.model.IdempotencyKey;
+import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
+import com.trendyol.jdempotent.redis.RedisConfigProperties;
+import com.trendyol.jdempotent.redis.RedisIdempotentRepository;
 
 @ExtendWith(MockitoExtension.class)
 public class RedisIdempotentRepositoryTest {
@@ -106,34 +109,36 @@ public class RedisIdempotentRepositoryTest {
     }
 
     @Test
-    public void given_idempotency_key_and_request_object_when_store_then_set_value_to_redis() {
+    public void given_idempotency_key_and_request_object_when_store_then_set_value_to_redis() throws Exception{
         //Given
         IdempotencyKey key = new IdempotencyKey("key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(123L);
         when(redisConfigProperties.getPersistReqRes()).thenReturn(true);
+        when(valueOperations.setIfAbsent(anyString(), any(IdempotentRequestResponseWrapper.class), anyLong(), any(TimeUnit.class))).thenReturn(true);
 
         //When
         redisIdempotentRepository.store(key, request, 1L, TimeUnit.HOURS);
 
         //Then
         var argumentCaptor = ArgumentCaptor.forClass(IdempotentRequestResponseWrapper.class);
-        verify(valueOperations).set(eq(key.getKeyValue()), argumentCaptor.capture(), eq(1L), eq(TimeUnit.HOURS));
+        verify(valueOperations).setIfAbsent(eq(key.getKeyValue()), argumentCaptor.capture(), eq(1L), eq(TimeUnit.HOURS));
         IdempotentRequestResponseWrapper value = argumentCaptor.getValue();
         assertEquals(value.getRequest().getRequest(), 123L);
     }
 
     @Test
-    public void given_ttl_zero_when_store_then_set_value_to_redis_with_property_ttl() {
+    public void given_ttl_zero_when_store_then_set_value_to_redis_with_property_ttl() throws Exception{
         //Given
         IdempotencyKey key = new IdempotencyKey("key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(123L);
         when(redisConfigProperties.getExpirationTimeHour()).thenReturn(99L);
+        when(valueOperations.setIfAbsent(anyString(), any(IdempotentRequestResponseWrapper.class), anyLong(), any(TimeUnit.class))).thenReturn(true);
 
         //When
         redisIdempotentRepository.store(key, request, 0L, TimeUnit.HOURS);
 
         //Then
-        verify(valueOperations).set(eq(key.getKeyValue()), any(), eq(99L), eq(TimeUnit.HOURS));
+        verify(valueOperations).setIfAbsent(eq(key.getKeyValue()), any(), eq(99L), eq(TimeUnit.HOURS));
     }
 
     @Test

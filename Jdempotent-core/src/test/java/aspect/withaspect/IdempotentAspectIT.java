@@ -1,15 +1,19 @@
 package aspect.withaspect;
 
-import aspect.core.IdempotentTestPayload;
-import aspect.core.TestException;
-import aspect.core.TestIdempotentResource;
-import com.trendyol.jdempotent.core.annotation.JdempotentResource;
-import com.trendyol.jdempotent.core.constant.CryptographyAlgorithm;
-import com.trendyol.jdempotent.core.datasource.InMemoryIdempotentRepository;
-import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
-import com.trendyol.jdempotent.core.model.IdempotencyKey;
-import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
-import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.aop.framework.AopProxyUtils;
@@ -19,16 +23,23 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.util.AopTestUtils;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import com.trendyol.jdempotent.core.annotation.JdempotentResource;
+import com.trendyol.jdempotent.core.constant.CryptographyAlgorithm;
+import com.trendyol.jdempotent.core.datasource.InMemoryIdempotentRepository;
+import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
+import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
+import com.trendyol.jdempotent.core.model.IdempotencyKey;
+import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import aspect.core.IdempotentTestPayload;
+import aspect.core.TestException;
+import aspect.core.TestIdempotentResource;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {IdempotentAspectIT.class, TestAopContext.class, TestIdempotentResource.class, DefaultKeyGenerator.class, InMemoryIdempotentRepository.class})
 public class IdempotentAspectIT {
-
+    
     @Autowired
     private TestIdempotentResource testIdempotentResource;
 
@@ -176,4 +187,51 @@ public class IdempotentAspectIT {
         assertTrue(idempotentRepository.contains(key));
     }
 
+    @Test
+    public void given_same_payload_when_called_concurrently_then_increment_should_happen_once() throws InterruptedException {
+        // reset static counter
+        TestIdempotentResource.inc = 0;
+
+        IdempotentTestPayload payload = new IdempotentTestPayload();
+        payload.setName("same");
+        payload.setEventId(42L);
+
+        int threads = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        CountDownLatch ready = new CountDownLatch(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threads);
+
+        AtomicInteger exceptionCount = new AtomicInteger(0);
+        
+        for (int i = 0; i < threads; i++) {
+            executor.execute(() -> {
+                ready.countDown();
+                try {
+                    start.await();
+                    testIdempotentResource.idempotentMethod(payload);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch(Throwable e){
+                    if(e.getCause() instanceof RequestAlreadyExistsException){
+                        exceptionCount.incrementAndGet();
+                    }
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        // synchronize start
+        ready.await();
+        start.countDown();
+        done.await();
+        executor.shutdown();
+
+        // should have incremented only once for the same request
+        assertEquals(1, (int) TestIdempotentResource.inc);
+        
+        // at least one exception should've been thrown
+        assertTrue(exceptionCount.get() > 0, "Exception count should be non-negative, got: " + exceptionCount.get());
+    }
 }

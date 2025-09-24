@@ -11,19 +11,20 @@ import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {TestIdempotentResource.class})
 public class IdempotentAspectUT {
 
@@ -99,7 +100,7 @@ public class IdempotentAspectUT {
         verify(idempotentRepository, times(1)).getResponse(any());
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void given_actual_payload_when_key_in_repository_and_method_has_one_arg_then_should_store_repository_before_should_be_delete() throws Throwable {
         //given
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
@@ -117,10 +118,12 @@ public class IdempotentAspectUT {
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
         when(idempotentRepository.contains(any())).thenReturn(false);
 
-        //when
-        idempotentAspect.execute(joinPoint);
+        //when & then
+        assertThrows(RuntimeException.class, () -> 
+            idempotentAspect.execute(joinPoint)
+        );
 
-        //then
+        // Verify interactions after exception
         verify(joinPoint, times(2)).getSignature();
         verify(signature).getMethod();
         verify(joinPoint).getTarget();
@@ -131,7 +134,7 @@ public class IdempotentAspectUT {
         verify(idempotentRepository, times(0)).getResponse(any());
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test
     public void not_given_a_payload_then_return_exception() throws Throwable {
         //given
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
@@ -148,10 +151,12 @@ public class IdempotentAspectUT {
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
         when(idempotentRepository.contains(any())).thenReturn(false);
 
-        //when
-        idempotentAspect.execute(joinPoint);
+        //when & then
+        assertThrows(IllegalStateException.class, () -> 
+            idempotentAspect.execute(joinPoint)
+        );
 
-        //then
+        // Verify interactions after exception
         verify(joinPoint).getTarget();
         verify(joinPoint).getSignature();
         verify(signature, times(0)).getMethod();
@@ -160,7 +165,7 @@ public class IdempotentAspectUT {
         verify(idempotentRepository, times(0)).setResponse(any(), any(), any());
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void given_a_payload_when_called_error_callback_then_should_return_exception() throws Throwable {
         //given
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
@@ -179,10 +184,12 @@ public class IdempotentAspectUT {
         when(errorCallback.onErrorCondition(any())).thenReturn(true);
         when(errorCallback.onErrorCustomException()).thenReturn(new RuntimeException());
 
-        //when
-        idempotentAspect.execute(joinPoint);
+        //when & then
+        assertThrows(RuntimeException.class, () -> 
+            idempotentAspect.execute(joinPoint)
+        );
 
-        //then
+        // Verify interactions after exception
         verify(joinPoint, times(2)).getSignature();
         verify(signature).getMethod();
         verify(joinPoint).getTarget();

@@ -22,8 +22,8 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
@@ -166,7 +166,7 @@ public class CouchbaseIdempotentRepositoryTest {
     ExistsResult existsResult = mock(ExistsResult.class);
     when(existsResult.exists()).thenReturn(true);
     when(getResult.contentAs(IdempotentRequestResponseWrapper.class)).thenReturn(wrapper);
-    when(getResult.expiry()).thenReturn(Optional.of(mock(Duration.class)));
+    when(getResult.expiry()).thenReturn(Optional.of(Duration.ofDays(1)));
     when(collection.get(eq(idempotencyKey.getKeyValue()),any())).thenReturn(getResult);
     when(collection.exists(idempotencyKey.getKeyValue())).thenReturn(existsResult);
     when(collection.upsert(eq(idempotencyKey.getKeyValue()),eq(wrapper),any())).thenReturn(mock(MutationResult.class));

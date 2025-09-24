@@ -4,6 +4,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -15,9 +16,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 import com.trendyol.jdempotent.core.annotation.JdempotentId;
-import com.trendyol.jdempotent.core.annotation.SetJdempotentId;
 import com.trendyol.jdempotent.core.annotation.JdempotentRequestPayload;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
+import com.trendyol.jdempotent.core.annotation.SetJdempotentId;
 import com.trendyol.jdempotent.core.callback.ErrorConditionalCallback;
 import com.trendyol.jdempotent.core.chain.AnnotationChain;
 import com.trendyol.jdempotent.core.chain.JdempotentDefaultChain;
@@ -260,19 +261,11 @@ public class IdempotentAspect {
      * @throws IllegalAccessException
      */
     public void setJdempotentId(Object[] args, String idempotencyKey) throws IllegalAccessException {
-        var wrapper = new IdempotentIgnorableWrapper();
         Field[] declaredFields = args[0].getClass().getDeclaredFields();
         for (Field declaredField : declaredFields) {
             declaredField.setAccessible(true);
-            if (declaredField.getDeclaredAnnotations().length == 0) {
-                wrapper.getNonIgnoredFields().put(declaredField.getName(), declaredField.get(args[0]));
-            } else {
-                for (Annotation annotation : declaredField.getDeclaredAnnotations()) {
-                    if (annotation instanceof SetJdempotentId) {
-                        wrapper.getNonIgnoredFields().put(declaredField.getName(), declaredField.get(args[0]));
-                        declaredField.set(args[0], idempotencyKey);
-                    }
-                }
+            if (declaredField.isAnnotationPresent(SetJdempotentId.class)) {
+                declaredField.set(args[0], idempotencyKey);
             }
         }
     }
@@ -291,42 +284,30 @@ public class IdempotentAspect {
 
         // Rule 1: direct parameter annotated with @JdempotentId
         for (int i = 0; i < args.length; i++) {
-            for (Annotation annotation : paramAnnotations[i]) {
-                if (annotation instanceof JdempotentId) {
-                    Object arg = args[i];
-                    return arg != null ? String.valueOf(arg) : null;
-                }
+            if (Arrays.stream(paramAnnotations[i]).anyMatch(a -> a instanceof JdempotentId)) {
+                Object arg = args[i];
+                return arg != null ? String.valueOf(arg) : null;
             }
         }
 
         // Rule 2: payload parameter with a field annotated with @JdempotentId
         for (int i = 0; i < args.length; i++) {
-            boolean isPayload = false;
-            for (Annotation annotation : paramAnnotations[i]) {
-                if (annotation instanceof JdempotentRequestPayload) {
-                    isPayload = true;
-                    break;
-                }
-            }
-            if (!isPayload) {
-                continue;
-            }
+            boolean isPayload = Arrays.stream(paramAnnotations[i]).anyMatch(a -> a instanceof JdempotentRequestPayload);
+            if (!isPayload) continue;
 
             Object payload = args[i];
-            if (payload == null) {
-                continue;
-            }
+            if (payload == null) continue;
 
             Field[] fields = payload.getClass().getDeclaredFields();
+            
             for (Field field : fields) {
-                for (Annotation fieldAnnotation : field.getDeclaredAnnotations()) {
-                    if (fieldAnnotation instanceof JdempotentId) {
-                        field.setAccessible(true);
-                        Object value = field.get(payload);
-                        return value != null ? String.valueOf(value) : null;
-                    }
+                if (field.isAnnotationPresent(JdempotentId.class)) {
+                    field.setAccessible(true);
+                    Object value = field.get(payload);
+                    return value != null ? String.valueOf(value) : null;
                 }
             }
+
         }
 
         // Rule 3: fallback handled by caller

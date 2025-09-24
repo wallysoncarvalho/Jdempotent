@@ -161,9 +161,7 @@ public class IdempotentAspect {
             result = pjp.proceed();
         } catch (RequestAlreadyExistsException e) {
             logger.debug("Request already exists with {}", idempotencyKey);
-
-            // TODO: we should allow the client to change the message and http code or we could throw and let the client handle the exception
-            return "Request already in progress";
+            throw e;
         }catch (Exception e) {
             logger.debug(classAndMethodName + "deleted from cache with {} . Exception : {}", idempotencyKey, e);
             idempotentRepository.remove(idempotencyKey);

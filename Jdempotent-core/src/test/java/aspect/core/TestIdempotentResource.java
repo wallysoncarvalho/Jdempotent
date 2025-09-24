@@ -11,6 +11,7 @@ public class TestIdempotentResource {
 
     @JdempotentResource
     public void idempotentMethod(IdempotentTestPayload testObject) {
+        inc++;
     }
 
     @JdempotentResource(cachePrefix = "TestIdempotentResource")
@@ -42,11 +43,5 @@ public class TestIdempotentResource {
     @JdempotentResource
     public String idempotencyKeyAsString(@JdempotentRequestPayload String idempotencyKey) {
         return idempotencyKey;
-    }
-
-    @JdempotentResource
-    public String idempotentMethodWithInc(IdempotentTestPayload testObject) {
-        inc++;
-        return "incremented " + inc;
     }
 }

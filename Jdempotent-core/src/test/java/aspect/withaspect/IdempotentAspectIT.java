@@ -9,12 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +26,7 @@ import org.springframework.test.util.AopTestUtils;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
 import com.trendyol.jdempotent.core.constant.CryptographyAlgorithm;
 import com.trendyol.jdempotent.core.datasource.InMemoryIdempotentRepository;
+import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
 import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
@@ -203,20 +202,20 @@ public class IdempotentAspectIT {
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(threads);
 
-        ArrayList<String> responses = new ArrayList<>();
-        List<String> syncResponses = Collections.synchronizedList(responses);
-
+        AtomicInteger exceptionCount = new AtomicInteger(0);
+        
         for (int i = 0; i < threads; i++) {
             executor.execute(() -> {
                 ready.countDown();
                 try {
                     start.await();
-                    
-                    String result = testIdempotentResource.idempotentMethodWithInc(payload);
-                    
-                    syncResponses.add(result);
+                    testIdempotentResource.idempotentMethod(payload);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                } catch(Throwable e){
+                    if(e.getCause() instanceof RequestAlreadyExistsException){
+                        exceptionCount.incrementAndGet();
+                    }
                 } finally {
                     done.countDown();
                 }
@@ -232,14 +231,7 @@ public class IdempotentAspectIT {
         // should have incremented only once for the same request
         assertEquals(1, (int) TestIdempotentResource.inc);
         
-        // Verify that at least one response indicates request already in progress
-        boolean hasRequestInProgressMessage = responses.stream()
-            .anyMatch(response -> "Request already in progress".equals(response));
-        
-        assertTrue(hasRequestInProgressMessage, 
-            "Expected at least one 'Request already in progress' response, but got: " + responses);
-        
-        // Verify we have the expected number of responses
-        assertEquals(threads, responses.size(), "Should have received " + threads + " responses");
+        // at least one exception should've been thrown
+        assertTrue(exceptionCount.get() > 0, "Exception count should be non-negative, got: " + exceptionCount.get());
     }
 }

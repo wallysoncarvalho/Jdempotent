@@ -18,7 +18,7 @@ import org.springframework.util.StringUtils;
 import com.trendyol.jdempotent.core.annotation.JdempotentId;
 import com.trendyol.jdempotent.core.annotation.JdempotentRequestPayload;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
-import com.trendyol.jdempotent.core.annotation.SetJdempotentId;
+import com.trendyol.jdempotent.core.annotation.JdempotentIdTarget;
 import com.trendyol.jdempotent.core.callback.ErrorConditionalCallback;
 import com.trendyol.jdempotent.core.chain.AnnotationChain;
 import com.trendyol.jdempotent.core.chain.JdempotentDefaultChain;
@@ -264,7 +264,7 @@ public class IdempotentAspect {
         Field[] declaredFields = args[0].getClass().getDeclaredFields();
         for (Field declaredField : declaredFields) {
             declaredField.setAccessible(true);
-            if (declaredField.isAnnotationPresent(SetJdempotentId.class)) {
+            if (declaredField.isAnnotationPresent(JdempotentIdTarget.class)) {
                 declaredField.set(args[0], idempotencyKey);
             }
         }

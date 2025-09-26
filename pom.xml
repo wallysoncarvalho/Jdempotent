@@ -45,6 +45,7 @@
         <module>Jdempotent-core</module>
         <module>Jdempotent-spring-boot-redis-starter</module>
         <module>Jdempotent-spring-boot-couchbase-starter</module>
+        <module>Jdempotent-spring-boot-postgres-starter</module>
     </modules>
 
     <dependencyManagement>

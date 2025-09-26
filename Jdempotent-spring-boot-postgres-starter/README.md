@@ -50,9 +50,8 @@ Configure the PostgreSQL starter in your `application.properties` or `applicatio
 jdempotent.enable=true
 
 # PostgreSQL specific configuration
-jdempotent.datasource.postgres.tableName=jdempotent
-jdempotent.datasource.postgres.entityManagerBeanName=
-jdempotent.datasource.postgres.expirationTimeSeconds=3600
+jdempotent.postgres.tableName=jdempotent
+jdempotent.postgres.entityManagerBeanName=
 
 # General configuration
 jdempotent.cache.persistReqRes=true
@@ -63,30 +62,31 @@ jdempotent.cache.persistReqRes=true
 | Property | Description | Default Value |
 |----------|-------------|---------------|
 | `jdempotent.enable` | Enable/disable Jdempotent | `true` |
-| `jdempotent.datasource.postgres.tableName` | Database table name | `jdempotent` |
-| `jdempotent.datasource.postgres.entityManagerBeanName` | Specific EntityManager bean name (optional) | `` |
-| `jdempotent.datasource.postgres.expirationTimeSeconds` | Default TTL in seconds | `3600` |
+| `jdempotent.postgres.tableName` | Database table name | `jdempotent` |
+| `jdempotent.postgres.entityManagerBeanName` | Specific EntityManager bean name (optional) | `` |
 | `jdempotent.cache.persistReqRes` | Whether to persist request/response data | `true` |
+
+**Note**: TTL (Time To Live) is now configured via the `@JdempotentResource` annotation's `ttl` and `ttlTimeUnit` properties, not through configuration files.
 
 ## Multiple EntityManager Support
 
 If your application uses multiple databases and has multiple EntityManager beans, you can specify which one to use:
 
 ```properties
-jdempotent.datasource.postgres.entityManagerBeanName=myCustomEntityManager
+jdempotent.postgres.entityManagerBeanName=myCustomEntityManager
 ```
 
 If not specified, the default EntityManager bean will be used.
 
 ## Usage
 
-Once configured, you can use the `@Jdempotent` annotation on your methods:
+Once configured, you can use the `@JdempotentResource` annotation on your methods with TTL configuration:
 
 ```java
 @Service
 public class MyService {
     
-    @Jdempotent
+    @JdempotentResource(ttl = 30, ttlTimeUnit = TimeUnit.MINUTES)
     public String processRequest(String requestId, String data) {
         // Your business logic here
         return "processed: " + data;
@@ -96,10 +96,16 @@ public class MyService {
 
 ## TTL and Cleanup
 
-The PostgreSQL starter supports automatic expiration of idempotent records through the `expires_at` column. You can:
+The PostgreSQL starter supports automatic expiration of idempotent records through the `expires_at` column. TTL is now configured per method using the `@JdempotentResource` annotation:
 
-1. Set a default TTL using `jdempotent.datasource.postgres.expirationTimeSeconds`
-2. Use the provided cleanup function to remove expired records:
+```java
+@JdempotentResource(ttl = 1, ttlTimeUnit = TimeUnit.HOURS)
+public String myMethod() {
+    // This method's idempotent data will expire after 1 hour
+}
+```
+
+You can use the provided cleanup function to remove expired records:
 
 ```sql
 SELECT cleanup_expired_jdempotent_records();

@@ -15,39 +15,37 @@ import jakarta.persistence.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
 /**
  * PostgreSQL implementation of the IdempotentRepository interface.
  * This repository uses JPA EntityManager to store idempotent request-response data
- * in a PostgreSQL database with TTL support.
+ * in a PostgreSQL database with TTL support from @JdempotentResource annotation.
  */
 public class PostgresIdempotentRepository implements IdempotentRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(PostgresIdempotentRepository.class);
 
     private final EntityManager entityManager;
-    private final PostgresConfigProperties postgresProperties;
+    private final JdempotentPostgresProperties postgresProperties;
     private final ObjectMapper objectMapper;
+    private final String tableName;
 
-    public PostgresIdempotentRepository(EntityManager entityManager, PostgresConfigProperties postgresProperties) {
+    public PostgresIdempotentRepository(EntityManager entityManager, JdempotentPostgresProperties postgresProperties, String tableName) {
         this.entityManager = entityManager;
         this.postgresProperties = postgresProperties;
+        this.tableName = tableName;
         this.objectMapper = new ObjectMapper();
     }
 
     @Override
     public boolean contains(IdempotencyKey key) {
         try {
-            String sql = String.format(
-                "SELECT COUNT(*) FROM %s WHERE idempotency_key = :key AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
-                postgresProperties.getTableName()
-            );
+            String sql = "SELECT COUNT(*) FROM " + tableName + " WHERE idempotency_key = ?1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)";
             
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("key", key.getKeyValue());
+            query.setParameter(1, key.getKeyValue());
             
             Number count = (Number) query.getSingleResult();
             return count.intValue() > 0;
@@ -60,13 +58,10 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
     @Override
     public IdempotentResponseWrapper getResponse(IdempotencyKey key) {
         try {
-            String sql = String.format(
-                "SELECT response_data FROM %s WHERE idempotency_key = :key AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
-                postgresProperties.getTableName()
-            );
+            String sql = "SELECT response_data FROM " + tableName + " WHERE idempotency_key = ?1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)";
             
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("key", key.getKeyValue());
+            query.setParameter(1, key.getKeyValue());
             
             String responseData = (String) query.getSingleResult();
             
@@ -87,13 +82,10 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
     @Override
     public IdempotentRequestResponseWrapper getRequestResponseWrapper(IdempotencyKey key) {
         try {
-            String sql = String.format(
-                "SELECT request_data, response_data FROM %s WHERE idempotency_key = :key AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
-                postgresProperties.getTableName()
-            );
+            String sql = "SELECT request_data, response_data FROM " + tableName + " WHERE idempotency_key = ?1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)";
             
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("key", key.getKeyValue());
+            query.setParameter(1, key.getKeyValue());
             
             Object[] result = (Object[]) query.getSingleResult();
             String requestData = (String) result[0];
@@ -123,7 +115,7 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
 
     @Override
     public void store(IdempotencyKey key, IdempotentRequestWrapper requestObject) throws RequestAlreadyExistsException {
-        store(key, requestObject, postgresProperties.getExpirationTimeSeconds(), TimeUnit.SECONDS);
+        store(key, requestObject, 0L, TimeUnit.SECONDS); // No default TTL, will be handled by annotation
     }
 
     @Override
@@ -139,21 +131,18 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
                 requestData = objectMapper.writeValueAsString(requestObject.getRequest());
             }
 
-            Timestamp expiresAt = null;
+            Instant expiresAt = null;
             if (ttl != null && ttl > 0) {
                 long ttlSeconds = timeUnit.toSeconds(ttl);
-                expiresAt = Timestamp.valueOf(LocalDateTime.now().plusSeconds(ttlSeconds));
+                expiresAt = Instant.now().plusSeconds(ttlSeconds);
             }
 
-            String sql = String.format(
-                "INSERT INTO %s (idempotency_key, request_data, response_data, expires_at) VALUES (:key, :requestData, NULL, :expiresAt)",
-                postgresProperties.getTableName()
-            );
+            String sql = "INSERT INTO " + tableName + " (idempotency_key, request_data, response_data, expires_at) VALUES (?1, ?2, NULL, ?3)";
 
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("key", key.getKeyValue());
-            query.setParameter("requestData", requestData);
-            query.setParameter("expiresAt", expiresAt);
+            query.setParameter(1, key.getKeyValue());
+            query.setParameter(2, requestData);
+            query.setParameter(3, expiresAt != null ? java.sql.Timestamp.from(expiresAt) : null);
 
             entityManager.getTransaction().begin();
             query.executeUpdate();
@@ -173,13 +162,10 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
     @Override
     public void remove(IdempotencyKey key) {
         try {
-            String sql = String.format(
-                "DELETE FROM %s WHERE idempotency_key = :key",
-                postgresProperties.getTableName()
-            );
+            String sql = "DELETE FROM " + tableName + " WHERE idempotency_key = ?1";
 
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("key", key.getKeyValue());
+            query.setParameter(1, key.getKeyValue());
 
             entityManager.getTransaction().begin();
             query.executeUpdate();
@@ -195,7 +181,7 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
 
     @Override
     public void setResponse(IdempotencyKey key, IdempotentRequestWrapper request, IdempotentResponseWrapper response) {
-        setResponse(key, request, response, postgresProperties.getExpirationTimeSeconds(), TimeUnit.SECONDS);
+        setResponse(key, request, response, 0L, TimeUnit.SECONDS); // No default TTL, will be handled by annotation
     }
 
     @Override
@@ -218,22 +204,19 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
                 }
             }
 
-            Timestamp expiresAt = null;
+            Instant expiresAt = null;
             if (ttl != null && ttl > 0) {
                 long ttlSeconds = timeUnit.toSeconds(ttl);
-                expiresAt = Timestamp.valueOf(LocalDateTime.now().plusSeconds(ttlSeconds));
+                expiresAt = Instant.now().plusSeconds(ttlSeconds);
             }
 
-            String sql = String.format(
-                "UPDATE %s SET request_data = :requestData, response_data = :responseData, expires_at = :expiresAt WHERE idempotency_key = :key",
-                postgresProperties.getTableName()
-            );
+            String sql = "UPDATE " + tableName + " SET request_data = ?1, response_data = ?2, expires_at = ?3 WHERE idempotency_key = ?4";
 
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("key", key.getKeyValue());
-            query.setParameter("requestData", requestData);
-            query.setParameter("responseData", responseData);
-            query.setParameter("expiresAt", expiresAt);
+            query.setParameter(1, requestData);
+            query.setParameter(2, responseData);
+            query.setParameter(3, expiresAt != null ? java.sql.Timestamp.from(expiresAt) : null);
+            query.setParameter(4, key.getKeyValue());
 
             entityManager.getTransaction().begin();
             query.executeUpdate();

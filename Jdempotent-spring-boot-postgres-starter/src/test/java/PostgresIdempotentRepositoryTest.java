@@ -3,7 +3,7 @@ import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
-import com.trendyol.jdempotent.postgres.PostgresConfigProperties;
+import com.trendyol.jdempotent.postgres.JdempotentPostgresProperties;
 import com.trendyol.jdempotent.postgres.PostgresIdempotentRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -34,17 +34,16 @@ class PostgresIdempotentRepositoryTest {
     @Mock
     private Query query;
 
-    private PostgresConfigProperties properties;
+    private JdempotentPostgresProperties properties;
     private PostgresIdempotentRepository repository;
+    private String tableName = "jdempotent";
 
     @BeforeEach
     void setUp() {
-        properties = new PostgresConfigProperties();
-        properties.setTableName("jdempotent");
-        properties.setExpirationTimeSeconds(3600L);
+        properties = new JdempotentPostgresProperties();
         properties.setPersistReqRes(true);
 
-        repository = new PostgresIdempotentRepository(entityManager, properties);
+        repository = new PostgresIdempotentRepository(entityManager, properties, tableName);
     }
 
     @Test
@@ -52,7 +51,7 @@ class PostgresIdempotentRepositoryTest {
         // Given
         IdempotencyKey key = new IdempotencyKey("test-key");
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(query.getSingleResult()).thenReturn(1);
 
         // When
@@ -61,7 +60,7 @@ class PostgresIdempotentRepositoryTest {
         // Then
         assertTrue(result);
         verify(entityManager).createNativeQuery(contains("SELECT COUNT(*)"));
-        verify(query).setParameter("key", "test-key");
+        verify(query).setParameter(1, "test-key");
     }
 
     @Test
@@ -69,7 +68,7 @@ class PostgresIdempotentRepositoryTest {
         // Given
         IdempotencyKey key = new IdempotencyKey("test-key");
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(query.getSingleResult()).thenReturn(0);
 
         // When
@@ -86,7 +85,7 @@ class PostgresIdempotentRepositoryTest {
         IdempotentRequestWrapper request = new IdempotentRequestWrapper("test-request");
         
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(entityManager.getTransaction()).thenReturn(transaction);
         // Mock contains() to return false (key doesn't exist)
         when(query.getSingleResult()).thenReturn(0);
@@ -108,7 +107,7 @@ class PostgresIdempotentRepositoryTest {
         IdempotentRequestWrapper request = new IdempotentRequestWrapper("test-request");
         
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         // Mock contains() to return true (key exists)
         when(query.getSingleResult()).thenReturn(1);
 
@@ -124,7 +123,7 @@ class PostgresIdempotentRepositoryTest {
         IdempotencyKey key = new IdempotencyKey("test-key");
         String responseJson = "\"test-response\"";
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(query.getSingleResult()).thenReturn(responseJson);
 
         // When
@@ -141,7 +140,7 @@ class PostgresIdempotentRepositoryTest {
         IdempotencyKey key = new IdempotencyKey("test-key");
         Object[] resultArray = {"\"test-request\"", "\"test-response\""};
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(query.getSingleResult()).thenReturn(resultArray);
 
         // When
@@ -160,7 +159,7 @@ class PostgresIdempotentRepositoryTest {
         // Given
         IdempotencyKey key = new IdempotencyKey("test-key");
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(entityManager.getTransaction()).thenReturn(transaction);
         when(query.executeUpdate()).thenReturn(1);
 
@@ -182,7 +181,7 @@ class PostgresIdempotentRepositoryTest {
         IdempotentResponseWrapper response = new IdempotentResponseWrapper("test-response");
         
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(entityManager.getTransaction()).thenReturn(transaction);
         // Mock contains() to return true
         when(query.getSingleResult()).thenReturn(1);
@@ -202,13 +201,13 @@ class PostgresIdempotentRepositoryTest {
     void testStore_WithPersistReqResFalse_DoesNotStoreRequestData() throws RequestAlreadyExistsException {
         // Given
         properties.setPersistReqRes(false);
-        repository = new PostgresIdempotentRepository(entityManager, properties);
+        repository = new PostgresIdempotentRepository(entityManager, properties, tableName);
         
         IdempotencyKey key = new IdempotencyKey("test-key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper("test-request");
         
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(entityManager.getTransaction()).thenReturn(transaction);
         when(query.getSingleResult()).thenReturn(0);
         when(query.executeUpdate()).thenReturn(1);
@@ -217,6 +216,6 @@ class PostgresIdempotentRepositoryTest {
         repository.store(key, request, 3600L, TimeUnit.SECONDS);
 
         // Then
-        verify(query).setParameter("requestData", null);
+        verify(query).setParameter(2, null);
     }
 }

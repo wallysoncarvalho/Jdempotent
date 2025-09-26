@@ -9,6 +9,8 @@ import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
 import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.Test;
@@ -56,14 +58,14 @@ public class IdempotentAspectUT {
         when(signature.getMethod()).thenReturn(method);
         when(joinPoint.getTarget()).thenReturn(testIdempotentResource);
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
-        when(idempotentRepository.contains(any())).thenReturn(false);
+        when(idempotentRepository.getRequestResponseWrapper(any())).thenReturn(null);
 
         //when
         idempotentAspect.execute(joinPoint);
 
         //then
-        verify(joinPoint, times(4)).getSignature();
-        verify(signature, times(3)).getMethod();
+        verify(joinPoint, times(5)).getSignature();
+        verify(signature, times(4)).getMethod();
         verify(joinPoint).getTarget();
         verify(idempotentRepository, times(1)).store(any(), any(), any(), any());
         verify(joinPoint).proceed();
@@ -76,28 +78,34 @@ public class IdempotentAspectUT {
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
         MethodSignature signature = mock(MethodSignature.class);
         Method method = TestIdempotentResource.class.getMethod("idempotentMethod", IdempotentTestPayload.class);
-        JdempotentResource jdempotentResource = mock(JdempotentResource.class);
         IdempotentTestPayload payload = new IdempotentTestPayload("payload");
         TestIdempotentResource testIdempotentResource = mock(TestIdempotentResource.class);
 
+        // Create a mock wrapper with matching request to avoid PayloadConflictException
+        IdempotentIgnorableWrapper mockWrapper = new IdempotentIgnorableWrapper();
+        mockWrapper.getNonIgnoredFields().put("name", "payload");
+        mockWrapper.getNonIgnoredFields().put("transactionId", null);
+        IdempotentRequestWrapper mockRequest = new IdempotentRequestWrapper(mockWrapper);
+        IdempotentRequestResponseWrapper mockResponseWrapper = new IdempotentRequestResponseWrapper(mockRequest);
+
+        when(defaultKeyGenerator.generateIdempotentKey(any(),any(),any(),any())).thenReturn(new IdempotencyKey("123"));
         when(joinPoint.getSignature()).thenReturn(signature);
         when(joinPoint.getArgs()).thenReturn(new Object[]{payload});
         when(signature.getMethod()).thenReturn(method);
         when(joinPoint.getTarget()).thenReturn(testIdempotentResource);
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
-        when(idempotentRepository.contains(any())).thenReturn(true);
+        when(idempotentRepository.getRequestResponseWrapper(any())).thenReturn(mockResponseWrapper);
 
         //when
         idempotentAspect.execute(joinPoint);
 
         //then
-        verify(joinPoint, times(4)).getSignature();
-        verify(signature, times(3)).getMethod();
+        verify(joinPoint, times(5)).getSignature();
+        verify(signature, times(4)).getMethod();
         verify(joinPoint).getTarget();
         verify(idempotentRepository, times(0)).store(any(), any());
         verify(joinPoint, times(0)).proceed();
         verify(idempotentRepository, times(0)).setResponse(any(), any(), any());
-        verify(idempotentRepository, times(1)).getResponse(any());
     }
 
     @Test
@@ -106,17 +114,18 @@ public class IdempotentAspectUT {
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
         MethodSignature signature = mock(MethodSignature.class);
         Method method = TestIdempotentResource.class.getMethod("idempotentMethodThrowingARuntimeException", IdempotentTestPayload.class);
-        JdempotentResource jdempotentResource = mock(JdempotentResource.class);
         IdempotentTestPayload payload = new IdempotentTestPayload("payload");
         TestIdempotentResource testIdempotentResource = mock(TestIdempotentResource.class);
+        IdempotencyKey idempotencyKey = new IdempotencyKey("test-key-123");
 
+        when(defaultKeyGenerator.generateIdempotentKey(any(),any(),any(),any())).thenReturn(idempotencyKey);
         when(joinPoint.getSignature()).thenReturn(signature);
         when(joinPoint.getArgs()).thenReturn(new Object[]{payload});
         when(signature.getMethod()).thenReturn(method);
         when(joinPoint.getTarget()).thenReturn(testIdempotentResource);
         when(joinPoint.proceed()).thenThrow(new RuntimeException());
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
-        when(idempotentRepository.contains(any())).thenReturn(false);
+        when(idempotentRepository.getRequestResponseWrapper(any())).thenReturn(null);
 
         //when & then
         assertThrows(RuntimeException.class, () -> 
@@ -124,10 +133,11 @@ public class IdempotentAspectUT {
         );
 
         // Verify interactions after exception
-        verify(joinPoint, times(2)).getSignature();
-        verify(signature).getMethod();
+        verify(joinPoint, times(5)).getSignature();
+        verify(signature, times(4)).getMethod();
         verify(joinPoint).getTarget();
-        verify(idempotentRepository, times(1)).store(any(), any());
+        verify(idempotentRepository).getRequestResponseWrapper(idempotencyKey);
+        verify(idempotentRepository, times(1)).store(any(), any(), any(), any());
         verify(joinPoint, times(1)).proceed();
         verify(idempotentRepository, times(1)).remove(any());
         verify(idempotentRepository, times(0)).setResponse(any(), any(), any());
@@ -149,7 +159,7 @@ public class IdempotentAspectUT {
         when(signature.getMethod()).thenReturn(method);
         when(joinPoint.getTarget()).thenReturn(testIdempotentResource);
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
-        when(idempotentRepository.contains(any())).thenReturn(false);
+        when(idempotentRepository.getRequestResponseWrapper(any())).thenReturn(null);
 
         //when & then
         assertThrows(IllegalStateException.class, () -> 
@@ -173,14 +183,16 @@ public class IdempotentAspectUT {
         Method method = TestIdempotentResource.class.getMethod("idempotentMethodThrowingARuntimeException", IdempotentTestPayload.class);
         IdempotentTestPayload payload = new IdempotentTestPayload("payload");
         TestIdempotentResource testIdempotentResource = mock(TestIdempotentResource.class);
+        IdempotencyKey idempotencyKey = new IdempotencyKey("test-key-123");
 
+        when(defaultKeyGenerator.generateIdempotentKey(any(),any(),any(),any())).thenReturn(idempotencyKey);
         when(joinPoint.getSignature()).thenReturn(signature);
         when(joinPoint.getArgs()).thenReturn(new Object[]{payload});
         when(signature.getMethod()).thenReturn(method);
         when(joinPoint.getTarget()).thenReturn(testIdempotentResource);
         when(joinPoint.proceed()).thenThrow(new RuntimeException());
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
-        when(idempotentRepository.contains(any())).thenReturn(false);
+        when(idempotentRepository.getRequestResponseWrapper(any())).thenReturn(null);
         when(errorCallback.onErrorCondition(any())).thenReturn(true);
         when(errorCallback.onErrorCustomException()).thenReturn(new RuntimeException());
 
@@ -190,10 +202,10 @@ public class IdempotentAspectUT {
         );
 
         // Verify interactions after exception
-        verify(joinPoint, times(2)).getSignature();
-        verify(signature).getMethod();
+        verify(joinPoint, times(5)).getSignature();
+        verify(signature, times(4)).getMethod();
         verify(joinPoint).getTarget();
-        verify(idempotentRepository, times(1)).store(any(), any());
+        verify(idempotentRepository, times(1)).store(any(), any(), any(), any());
         verify(joinPoint).proceed();
         verify(idempotentRepository, times(0)).setResponse(any(), any(), any());
         verify(idempotentRepository, times(1)).remove(any());
@@ -214,7 +226,7 @@ public class IdempotentAspectUT {
         when(signature.getMethod()).thenReturn(method);
         when(joinPoint.getTarget()).thenReturn(testIdempotentResource);
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
-        when(idempotentRepository.contains(any())).thenReturn(false);
+        when(idempotentRepository.getRequestResponseWrapper(any())).thenReturn(null);
 
         //when
         var idempotentRequestWrapper = idempotentAspect.findIdempotentRequestArg(joinPoint);
@@ -243,7 +255,7 @@ public class IdempotentAspectUT {
         when(signature.getMethod()).thenReturn(method);
         when(joinPoint.getTarget()).thenReturn(testIdempotentResource);
         when(joinPoint.getTarget().getClass().getSimpleName()).thenReturn("TestIdempotentResource");
-        when(idempotentRepository.contains(any())).thenReturn(false);
+        when(idempotentRepository.getRequestResponseWrapper(any())).thenReturn(null);
 
         //when
         var idempotentRequestWrapper = idempotentAspect.findIdempotentRequestArg(joinPoint);

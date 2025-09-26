@@ -138,4 +138,10 @@ public class RedisIdempotentRepository implements IdempotentRepository {
         }
         return new IdempotentRequestResponseWrapper(null);
     }
+
+    @Override
+    public IdempotentRequestResponseWrapper getRequestResponseWrapper(IdempotencyKey key) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getRequestResponseWrapper'");
+    }
 }

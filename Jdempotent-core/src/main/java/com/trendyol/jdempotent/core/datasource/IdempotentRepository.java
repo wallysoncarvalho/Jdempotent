@@ -1,6 +1,7 @@
 package com.trendyol.jdempotent.core.datasource;
 
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
+import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
 
@@ -23,6 +24,15 @@ public interface IdempotentRepository {
      * @return
      */
     IdempotentResponseWrapper getResponse(IdempotencyKey key);
+
+    /**
+     * Retrieves the complete request-response wrapper for the given key
+     * This allows getting both request and response data in a single call
+     *
+     * @param key
+     * @return IdempotentRequestResponseWrapper containing both request and response, or null if not found
+     */
+    IdempotentRequestResponseWrapper getRequestResponseWrapper(IdempotencyKey key);
 
     /**
      * @param key

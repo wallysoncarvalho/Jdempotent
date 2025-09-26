@@ -28,12 +28,14 @@ import com.trendyol.jdempotent.core.chain.JdempotentPropertyAnnotationChain;
 import com.trendyol.jdempotent.core.constant.CryptographyAlgorithm;
 import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
 import com.trendyol.jdempotent.core.datasource.InMemoryIdempotentRepository;
+import com.trendyol.jdempotent.core.datasource.PayloadConflictException;
 import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
 import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
 import com.trendyol.jdempotent.core.generator.KeyGenerator;
 import com.trendyol.jdempotent.core.model.ChainData;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentIgnorableWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
 import com.trendyol.jdempotent.core.model.KeyValuePair;
@@ -138,11 +140,10 @@ public class IdempotentAspect {
      * @throws Throwable
      */
     @Around("@annotation(com.trendyol.jdempotent.core.annotation.JdempotentResource)")
-    public Object execute(ProceedingJoinPoint pjp) throws RequestAlreadyExistsException, Throwable {
+    public Object execute(ProceedingJoinPoint pjp) throws RequestAlreadyExistsException, PayloadConflictException, Throwable {
         String classAndMethodName = generateLogPrefixForIncomingEvent(pjp);
         IdempotentRequestWrapper requestObject = findIdempotentRequestArg(pjp);
         String listenerName = ((MethodSignature) pjp.getSignature()).getMethod().getAnnotation(JdempotentResource.class).cachePrefix();
-        
         String annotatedIdValue = findIdempotentKeyFromAnnotations(pjp);
         
         IdempotencyKey idempotencyKey = (annotatedIdValue != null && !annotatedIdValue.isEmpty())
@@ -154,8 +155,22 @@ public class IdempotentAspect {
 
         logger.debug(classAndMethodName + "starting for {}", requestObject);
 
-        if (idempotentRepository.contains(idempotencyKey)) {
-            Object response = retrieveResponse(idempotencyKey);
+        // Single call to get both request and response data
+        IdempotentRequestResponseWrapper existingWrapper = idempotentRepository.getRequestResponseWrapper(idempotencyKey);
+        
+        if (existingWrapper != null) {
+            // Check if the incoming request payload matches the stored payload
+            IdempotentRequestWrapper storedRequest = existingWrapper.getRequest();
+            
+            if (!requestObject.equals(storedRequest)) {
+                logger.warn(classAndMethodName + "payload conflict detected for key {} - incoming: {}, stored: {}", 
+                           idempotencyKey, requestObject, storedRequest);
+                throw new PayloadConflictException("Request payload conflicts with stored payload for idempotency key: " + idempotencyKey.getKeyValue());
+            }
+
+            // Get response from the same wrapper (no additional call needed)
+            IdempotentResponseWrapper responseWrapper = existingWrapper.getResponse();
+            Object response = responseWrapper != null ? responseWrapper.getResponse() : null;
             logger.debug(classAndMethodName + "ended up reading from cache for {}", requestObject);
             return response;
         }
@@ -206,19 +221,6 @@ public class IdempotentAspect {
         return builder.toString();
     }
 
-    /**
-     * Retrieve response from cache
-     *
-     * @param key
-     * @return
-     */
-    private Object retrieveResponse(IdempotencyKey key) {
-        IdempotentResponseWrapper response = idempotentRepository.getResponse(key);
-        if (response != null) {
-            return response.getResponse();
-        }
-        return null;
-    }
 
     /**
      * Finds the idempotent object
@@ -263,8 +265,8 @@ public class IdempotentAspect {
     public void setJdempotentId(Object[] args, String idempotencyKey) throws IllegalAccessException {
         Field[] declaredFields = args[0].getClass().getDeclaredFields();
         for (Field declaredField : declaredFields) {
-            declaredField.setAccessible(true);
             if (declaredField.isAnnotationPresent(JdempotentIdTarget.class)) {
+                declaredField.setAccessible(true);
                 declaredField.set(args[0], idempotencyKey);
             }
         }

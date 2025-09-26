@@ -45,13 +45,14 @@ public class IdempotentAspectWithErrorCallbackIT {
         test.setName("another");
         IdempotentIgnorableWrapper wrapper = new IdempotentIgnorableWrapper();
         wrapper.getNonIgnoredFields().put("name", "another");
+        wrapper.getNonIgnoredFields().put("transactionId", null);
         IdempotencyKey idempotencyKey = defaultKeyGenerator.generateIdempotentKey(new IdempotentRequestWrapper(wrapper), "", new StringBuilder(), MessageDigest.getInstance(CryptographyAlgorithm.MD5.value()));
 
         //when
         testIdempotentResource.idempotentMethodReturnArg(test);
 
         //then
-        assertTrue(idempotentRepository.contains(idempotencyKey));
+        assertNotNull(idempotentRepository.getRequestResponseWrapper(idempotencyKey));
     }
 
     @Test
@@ -69,6 +70,6 @@ public class IdempotentAspectWithErrorCallbackIT {
         );
         
         // Verify repository state after exception
-        assertFalse(idempotentRepository.contains(idempotencyKey));
+        assertNull(idempotentRepository.getRequestResponseWrapper(idempotencyKey));
     }
 }

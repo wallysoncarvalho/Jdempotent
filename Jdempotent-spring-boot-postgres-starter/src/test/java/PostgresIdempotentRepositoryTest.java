@@ -43,7 +43,7 @@ class PostgresIdempotentRepositoryTest {
         properties.setTableName("jdempotent");
         properties.setPersistReqRes(true);
 
-        repository = new PostgresIdempotentRepository(entityManager, properties, properties.getTableName());
+        repository = new PostgresIdempotentRepository(entityManager, properties);
     }
 
     @Test
@@ -121,10 +121,12 @@ class PostgresIdempotentRepositoryTest {
     void testGetResponse_WhenResponseExists_ReturnsResponse() {
         // Given
         IdempotencyKey key = new IdempotencyKey("test-key");
-        String responseJson = "\"test-response\"";
+        // Simulate serialized byte array for "test-response" string
+        String testResponse = "test-response";
+        byte[] responseBytes = serializeTestObject(testResponse);
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter(anyInt(), any())).thenReturn(query);
-        when(query.getSingleResult()).thenReturn(responseJson);
+        when(query.getSingleResult()).thenReturn(responseBytes);
 
         // When
         IdempotentResponseWrapper result = repository.getResponse(key);
@@ -138,7 +140,9 @@ class PostgresIdempotentRepositoryTest {
     void testGetRequestResponseWrapper_WhenDataExists_ReturnsWrapper() {
         // Given
         IdempotencyKey key = new IdempotencyKey("test-key");
-        Object[] resultArray = {"\"test-request\"", "\"test-response\""};
+        byte[] requestBytes = serializeTestObject("test-request");
+        byte[] responseBytes = serializeTestObject("test-response");
+        Object[] resultArray = {requestBytes, responseBytes};
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(query.getSingleResult()).thenReturn(resultArray);
@@ -201,7 +205,7 @@ class PostgresIdempotentRepositoryTest {
     void testStore_WithPersistReqResFalse_DoesNotStoreRequestData() throws RequestAlreadyExistsException {
         // Given
         properties.setPersistReqRes(false);
-        repository = new PostgresIdempotentRepository(entityManager, properties, properties.getTableName());
+        repository = new PostgresIdempotentRepository(entityManager, properties);
         
         IdempotencyKey key = new IdempotencyKey("test-key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper("test-request");
@@ -217,5 +221,18 @@ class PostgresIdempotentRepositoryTest {
 
         // Then
         verify(query).setParameter(2, null);
+    }
+
+    /**
+     * Helper method to serialize objects for testing
+     */
+    private byte[] serializeTestObject(Object obj) {
+        try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+             java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream(baos)) {
+            oos.writeObject(obj);
+            return baos.toByteArray();
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to serialize test object", e);
+        }
     }
 }

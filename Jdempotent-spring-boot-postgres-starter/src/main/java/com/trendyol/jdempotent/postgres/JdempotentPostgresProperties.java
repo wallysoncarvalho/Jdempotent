@@ -73,11 +73,11 @@ public class JdempotentPostgresProperties {
     private String entityManagerBeanName;
 
     /**
-     * Whether to persist request and response data as JSON in the database.
+     * Whether to persist request and response data as byte arrays in the database.
      * 
-     * <p>When enabled, the full request and response objects are serialized to JSON and stored
-     * in the request_data and response_data columns. This allows for complete audit trails and
-     * debugging capabilities but increases storage requirements.</p>
+     * <p>When enabled, the full request and response objects are serialized to byte arrays using
+     * Java serialization and stored in the request_data and response_data BYTEA columns. This 
+     * allows for complete audit trails and debugging capabilities but increases storage requirements.</p>
      * 
      * <p>When disabled, only the idempotency key and expiration information are stored,
      * reducing storage overhead but limiting debugging capabilities.</p>
@@ -87,9 +87,13 @@ public class JdempotentPostgresProperties {
      * 
      * <h4>Storage Impact:</h4>
      * <ul>
-     *   <li><strong>true:</strong> Full request/response data stored as JSON (higher storage, better debugging)</li>
+     *   <li><strong>true:</strong> Full request/response data stored as byte arrays (higher storage, better debugging)</li>
      *   <li><strong>false:</strong> Only keys and metadata stored (lower storage, limited debugging)</li>
      * </ul>
+     * 
+     * <h4>Serialization:</h4>
+     * <p>Data is stored using Java's built-in serialization mechanism, which is more efficient than
+     * JSON and avoids character encoding issues. Objects must be Serializable to be persisted.</p>
      * 
      * @see #getPersistReqRes()
      * @see #setPersistReqRes(Boolean)
@@ -135,7 +139,7 @@ public class JdempotentPostgresProperties {
     }
 
     /**
-     * Gets whether request/response data should be persisted as JSON.
+     * Gets whether request/response data should be persisted as byte arrays.
      * 
      * @return true if request/response data should be stored, false otherwise
      */
@@ -144,9 +148,9 @@ public class JdempotentPostgresProperties {
     }
 
     /**
-     * Sets whether request/response data should be persisted as JSON.
+     * Sets whether request/response data should be persisted as byte arrays.
      * 
-     * @param persistReqRes true to store request/response data as JSON,
+     * @param persistReqRes true to store request/response data as byte arrays,
      *                      false to store only keys and metadata
      */
     public void setPersistReqRes(Boolean persistReqRes) {

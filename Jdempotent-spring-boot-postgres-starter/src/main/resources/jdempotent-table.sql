@@ -3,8 +3,8 @@
 
 CREATE TABLE IF NOT EXISTS jdempotent (
     idempotency_key VARCHAR(255) PRIMARY KEY,
-    request_data TEXT,
-    response_data TEXT,
+    request_data BYTEA,
+    response_data BYTEA,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP
 );

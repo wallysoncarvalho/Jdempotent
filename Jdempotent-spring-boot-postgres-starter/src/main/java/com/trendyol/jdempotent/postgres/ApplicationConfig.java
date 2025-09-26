@@ -37,7 +37,7 @@ public class ApplicationConfig {
     @ConditionalOnBean(ErrorConditionalCallback.class)
     public IdempotentAspect getIdempotentAspect(ErrorConditionalCallback errorConditionalCallback) {
         EntityManager entityManager = resolveEntityManager();
-        return new IdempotentAspect(new PostgresIdempotentRepository(entityManager, postgresProperties, postgresProperties.getTableName()),
+        return new IdempotentAspect(new PostgresIdempotentRepository(entityManager, postgresProperties),
                 errorConditionalCallback);
     }
 
@@ -48,7 +48,7 @@ public class ApplicationConfig {
     @ConditionalOnMissingBean({ IdempotentAspect.class, KeyGenerator.class })
     public IdempotentAspect defaultGetIdempotentAspect() {
         EntityManager entityManager = resolveEntityManager();
-        return new IdempotentAspect(new PostgresIdempotentRepository(entityManager, postgresProperties, postgresProperties.getTableName()));
+        return new IdempotentAspect(new PostgresIdempotentRepository(entityManager, postgresProperties));
     }
 
     /**

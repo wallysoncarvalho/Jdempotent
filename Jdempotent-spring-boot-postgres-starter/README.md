@@ -6,9 +6,9 @@ This module provides PostgreSQL integration for the Jdempotent library, allowing
 
 - PostgreSQL-based idempotent request/response storage
 - Configurable table name (default: `jdempotent`)
-- TTL (Time To Live) support for automatic cleanup
+- TTL (Time To Live) support via `@JdempotentResource` annotation
 - Support for multiple EntityManager beans
-- JSON serialization of request/response data
+- Byte array serialization of request/response data for efficiency
 - Spring Boot auto-configuration
 
 ## Getting Started
@@ -118,10 +118,18 @@ Consider setting up a scheduled job to run this cleanup function periodically.
 The table structure is designed to store:
 
 - `idempotency_key`: The unique key for the idempotent operation (Primary Key)
-- `request_data`: JSON serialized request data (optional, based on `persistReqRes` setting)
-- `response_data`: JSON serialized response data (optional, based on `persistReqRes` setting)
+- `request_data`: Byte array serialized request data (BYTEA, optional, based on `persistReqRes` setting)
+- `response_data`: Byte array serialized response data (BYTEA, optional, based on `persistReqRes` setting)
 - `created_at`: Timestamp when the record was created
 - `expires_at`: Timestamp when the record should expire (nullable)
+
+### Why Byte Arrays Instead of JSON?
+
+The PostgreSQL starter uses byte array serialization instead of JSON for several advantages:
+- **Efficiency**: More compact storage and faster serialization/deserialization
+- **No Encoding Issues**: Avoids character encoding problems
+- **Type Safety**: Preserves exact object types during serialization
+- **Performance**: Better database performance with BYTEA columns
 
 ## License
 

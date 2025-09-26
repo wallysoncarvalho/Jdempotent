@@ -1,13 +1,22 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0"?>
+<project
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+        xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.trendyol</groupId>
-    <artifactId>jdempotent</artifactId>
-    <packaging>pom</packaging>
-    <version>1.1.0</version>
-    <name>Jdempotent</name>
-    <url>https://github.com/Trendyol/Jdempotent</url>
-    <description>Jdempotent</description>
+    <artifactId>Jdempotent-spring-boot-postgres-starter</artifactId>
+    <version>2.0.0</version>
+    <name>Jdempotent-spring-boot-postgres-starter</name>
+    <packaging>jar</packaging>
+    <url>https://github.com/Trendyol/Jdempotent/tree/master/Jdempotent-spring-boot-postgres-starter</url>
+    <description>Jdempotent-spring-boot-postgres-starter</description>
+
+    <parent>
+        <groupId>org.sonatype.oss</groupId>
+        <artifactId>oss-parent</artifactId>
+        <version>9</version>
+    </parent>
 
     <licenses>
         <license>
@@ -39,83 +48,76 @@
         <spring.framework.version>6.2.10</spring.framework.version>
         <version.mockito>5.14.2</version.mockito>
         <version.junit>5.11.3</version.junit>
+        <postgresql.version>42.7.4</postgresql.version>
     </properties>
 
-    <modules>
-        <module>Jdempotent-core</module>
-        <module>Jdempotent-spring-boot-redis-starter</module>
-        <module>Jdempotent-spring-boot-couchbase-starter</module>
-        <module>Jdempotent-spring-boot-postgres-starter</module>
-    </modules>
+    <dependencies>
+        <dependency>
+            <groupId>com.trendyol</groupId>
+            <artifactId>Jdempotent-core</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+            <version>${spring.boot.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.9.22</version>
+            <scope>compile</scope>
+        </dependency>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>de.siegmar</groupId>
-                <artifactId>logback-gelf</artifactId>
-                <version>6.0.1</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-context</artifactId>
-                <version>${spring.framework.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-aspects</artifactId>
-                <version>${spring.framework.version}</version>
-                <optional>true</optional>
-            </dependency>
-            <dependency>
-                <groupId>redis.clients</groupId>
-                <artifactId>jedis</artifactId>
-                <version>5.2.0</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-data-redis</artifactId>
-                <version>${spring.boot.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-autoconfigure</artifactId>
-                <version>${spring.boot.version}</version>
-                <optional>true</optional>
-            </dependency>
-
-            <!-- Unit Test Dependencies-->
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter</artifactId>
-                <version>${version.junit}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-test</artifactId>
-                <version>${spring.boot.version}</version>
-                <scope>test</scope>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.junit.vintage</groupId>
-                        <artifactId>junit-vintage-engine</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-            <dependency>
-                <groupId>org.mockito</groupId>
-                <artifactId>mockito-core</artifactId>
-                <version>${version.mockito}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.mockito</groupId>
-                <artifactId>mockito-junit-jupiter</artifactId>
-                <version>${version.mockito}</version>
-                <scope>test</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+        <!-- Unit Test Dependencies-->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${version.junit}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <version>${spring.boot.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${version.mockito}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${version.mockito}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.3.232</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <profiles>
         <!-- Deployment profile (required so these plugins are only used when deploying) -->
@@ -126,25 +128,18 @@
                     <!-- Source plugin -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.6</version>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>2.4</version>
                         <executions>
                             <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
+                                <id>attach-sources</id>
                                 <goals>
-                                    <goal>sign</goal>
+                                    <goal>jar-no-fork</goal>
                                 </goals>
-                                <configuration>
-                                    <!-- Prevent `gpg` from using pinentry programs -->
-                                    <gpgArguments>
-                                        <arg>--pinentry-mode</arg>
-                                        <arg>loopback</arg>
-                                    </gpgArguments>
-                                </configuration>
                             </execution>
                         </executions>
                     </plugin>
+
                     <!-- Javadoc plugin -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -158,14 +153,26 @@
                                 </goals>
                             </execution>
                         </executions>
-                        <configuration>
-                            <!--
-                                Workaround for Javadoc generation issue with Java 11+
-                                TODO: Remove config once https://bugs.openjdk.java.net/browse/JDK-8212233 is fixed
-                            -->
-                            <source>8</source>
-                        </configuration>
                     </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>empty-javadoc-jar</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                                <configuration>
+                                    <classifier>javadoc</classifier>
+                                    <classesDirectory>${basedir}/javadoc</classesDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
                     <!-- GPG plugin -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -191,55 +198,9 @@
                 </plugins>
             </build>
         </profile>
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>2.9.1</version>
-                        <executions>
-                            <execution>
-                                <id>attach-javadocs</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <!-- GPG Signature on release -->
-        <profile>
-            <id>release-sign-artifacts</id>
-            <activation>
-                <property>
-                    <name>performRelease</name>
-                    <value>true</value>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.6</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
     </profiles>
+
+
     <build>
         <plugins>
             <!-- Nexus Staging Plugin -->
@@ -303,17 +264,24 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.1</version>
+                    <version>3.5.4</version>
+
+                    <dependencies>
+                        <dependency>
+                            <groupId>me.fabriciorby</groupId>
+                            <artifactId>maven-surefire-junit5-tree-reporter</artifactId>
+                            <version>1.1.0</version>
+                        </dependency>
+                    </dependencies>
+                
                     <configuration>
-                        <includes>
-                            <include>**/Test*.java</include>
-                            <include>**/*Test.java</include>
-                            <include>**/*Tests.java</include>
-                            <include>**/*TestCase.java</include>
-                            <include>**/*IT.java</include>
-                            <include>**/*UT.java</include>
-                        </includes>
-                    </configuration>
+                        <consoleOutputReporter>
+                           <disable>true</disable>
+                        </consoleOutputReporter>
+                        <reportFormat>plain</reportFormat>
+                        <statelessTestsetInfoReporter  implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoTreeReporterUnicode"/>
+                     </configuration>
+
                 </plugin>
                 <plugin>
                     <artifactId>maven-jar-plugin</artifactId>
@@ -339,6 +307,14 @@
         </pluginManagement>
     </build>
 
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jcenter</id>
+            <name>JCenter</name>
+            <url>https://jcenter.bintray.com/</url>
+        </pluginRepository>
+    </pluginRepositories>
+
     <distributionManagement>
         <snapshotRepository>
             <id>ossrh</id>
@@ -349,4 +325,5 @@
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
     </distributionManagement>
+
 </project>

@@ -38,8 +38,14 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
+      - name: Build and install Jdempotent-core to local repository
+        run: mvn clean install -pl Jdempotent-core -DskipTests
+
       - name: Run tests for "Jdempotent-core"
-        run: mvn clean test -pl Jdempotent-core
+        run: mvn test -pl Jdempotent-core
 
       - name: Run tests for "Jdempotent-spring-boot-redis-starter"
-        # run: mvn clean test -pl Jdempotent-spring-boot-redis-starter
+        run: mvn test -pl Jdempotent-spring-boot-redis-starter
+
+      - name: Run tests for "Jdempotent-spring-boot-postgres-starter"
+        run: mvn test -pl Jdempotent-spring-boot-postgres-starter

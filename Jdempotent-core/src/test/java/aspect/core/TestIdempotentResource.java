@@ -1,5 +1,6 @@
 package aspect.core;
 
+import com.trendyol.jdempotent.core.annotation.JdempotentId;
 import com.trendyol.jdempotent.core.annotation.JdempotentRequestPayload;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
 import org.springframework.stereotype.Component;
@@ -43,5 +44,15 @@ public class TestIdempotentResource {
     @JdempotentResource
     public String idempotencyKeyAsString(@JdempotentRequestPayload String idempotencyKey) {
         return idempotencyKey;
+    }
+
+    @JdempotentResource
+    public IdempotentTestPayload idempotentMethodWithExplicitId(@JdempotentId String idempotencyKey, @JdempotentRequestPayload IdempotentTestPayload testObject) {
+        return testObject;
+    }
+
+    @JdempotentResource
+    public TestPayloadWithKey idempotentMethodWithPayloadId(@JdempotentRequestPayload TestPayloadWithKey testObject) {
+        return testObject;
     }
 }

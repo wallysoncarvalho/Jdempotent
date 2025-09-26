@@ -29,7 +29,11 @@ public class IdempotentRequestWrapper implements Serializable {
 
     @Override
     public boolean equals(Object obj) {
-        return request == null ? false : request.equals(obj);
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        
+        IdempotentRequestWrapper that = (IdempotentRequestWrapper) obj;
+        return request != null ? request.equals(that.request) : that.request == null;
     }
 
     @Override

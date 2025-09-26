@@ -1,9 +1,9 @@
 package aspect.withaspect;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,6 +26,7 @@ import org.springframework.test.util.AopTestUtils;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
 import com.trendyol.jdempotent.core.constant.CryptographyAlgorithm;
 import com.trendyol.jdempotent.core.datasource.InMemoryIdempotentRepository;
+import com.trendyol.jdempotent.core.datasource.PayloadConflictException;
 import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
 import com.trendyol.jdempotent.core.generator.DefaultKeyGenerator;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
@@ -35,6 +36,7 @@ import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
 import aspect.core.IdempotentTestPayload;
 import aspect.core.TestException;
 import aspect.core.TestIdempotentResource;
+import aspect.core.TestPayloadWithKey;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {IdempotentAspectIT.class, TestAopContext.class, TestIdempotentResource.class, DefaultKeyGenerator.class, InMemoryIdempotentRepository.class})
@@ -70,6 +72,7 @@ public class IdempotentAspectIT {
         IdempotentTestPayload test = new IdempotentTestPayload();
         IdempotentIgnorableWrapper wrapper = new IdempotentIgnorableWrapper();
         wrapper.getNonIgnoredFields().put("name", null);
+        wrapper.getNonIgnoredFields().put("transactionId", null);
 
         IdempotencyKey idempotencyKey = defaultKeyGenerator.generateIdempotentKey(new IdempotentRequestWrapper(wrapper), "", new StringBuilder(), MessageDigest.getInstance(CryptographyAlgorithm.MD5.value()));
 
@@ -77,7 +80,7 @@ public class IdempotentAspectIT {
         testIdempotentResource.idempotentMethod(test);
 
         //then
-        assertTrue(idempotentRepository.contains(idempotencyKey));
+        assertNotNull(idempotentRepository.getRequestResponseWrapper(idempotencyKey));
     }
 
     @Test
@@ -88,6 +91,7 @@ public class IdempotentAspectIT {
         IdempotentTestPayload test2 = new IdempotentTestPayload();
         IdempotentIgnorableWrapper wrapper = new IdempotentIgnorableWrapper();
         wrapper.getNonIgnoredFields().put("name", null);
+        wrapper.getNonIgnoredFields().put("transactionId", null);
 
         IdempotencyKey idempotencyKey = defaultKeyGenerator.generateIdempotentKey(new IdempotentRequestWrapper(wrapper), "TestIdempotentResource", new StringBuilder(), MessageDigest.getInstance(CryptographyAlgorithm.MD5.value()));
 
@@ -95,7 +99,7 @@ public class IdempotentAspectIT {
         testIdempotentResource.idempotentMethodWithThreeParameter(test, test1, test2);
 
         //then
-        assertTrue(idempotentRepository.contains(idempotencyKey));
+        assertNotNull(idempotentRepository.getRequestResponseWrapper(idempotencyKey));
     }
 
     @Test
@@ -114,7 +118,7 @@ public class IdempotentAspectIT {
         );
         
         // Verify repository state after exception
-        assertFalse(idempotentRepository.contains(idempotencyKey));
+        assertNull(idempotentRepository.getRequestResponseWrapper(idempotencyKey));
     }
 
     @Test
@@ -125,13 +129,14 @@ public class IdempotentAspectIT {
         Object test2 = new Object();
         IdempotentIgnorableWrapper wrapper = new IdempotentIgnorableWrapper();
         wrapper.getNonIgnoredFields().put("name", null);
+        wrapper.getNonIgnoredFields().put("transactionId", null);
         IdempotencyKey idempotencyKey = defaultKeyGenerator.generateIdempotentKey(new IdempotentRequestWrapper(wrapper), "TestIdempotentResource", new StringBuilder(), MessageDigest.getInstance(CryptographyAlgorithm.MD5.value()));
 
         //when
         testIdempotentResource.idempotentMethodWithThreeParamaterAndMultipleJdempotentRequestPayloadAnnotation(test, test1, test2);
 
         //then
-        assertTrue(idempotentRepository.contains(idempotencyKey));
+        assertNotNull(idempotentRepository.getRequestResponseWrapper(idempotencyKey));
     }
 
     @Test
@@ -161,6 +166,7 @@ public class IdempotentAspectIT {
         IdempotentTestPayload test = new IdempotentTestPayload();
         IdempotentIgnorableWrapper wrapper = new IdempotentIgnorableWrapper();
         wrapper.getNonIgnoredFields().put("name", null);
+        wrapper.getNonIgnoredFields().put("transactionId", null);
 
         IdempotencyKey idempotencyKey = defaultKeyGenerator.generateIdempotentKey(new IdempotentRequestWrapper(wrapper), "", new StringBuilder(), MessageDigest.getInstance(CryptographyAlgorithm.MD5.value()));
 
@@ -168,7 +174,7 @@ public class IdempotentAspectIT {
         testIdempotentResource.idempotentMethod(test);
 
         //then
-        assertTrue(idempotentRepository.contains(idempotencyKey));
+        assertNotNull(idempotentRepository.getRequestResponseWrapper(idempotencyKey));
     }
 
     @Test
@@ -184,7 +190,7 @@ public class IdempotentAspectIT {
         testIdempotentResource.idempotencyKeyAsString(idempotencyKey);
 
         //then
-        assertTrue(idempotentRepository.contains(key));
+        assertNotNull(idempotentRepository.getRequestResponseWrapper(key));
     }
 
     @Test
@@ -233,5 +239,69 @@ public class IdempotentAspectIT {
         
         // at least one exception should've been thrown
         assertTrue(exceptionCount.get() > 0, "Exception count should be non-negative, got: " + exceptionCount.get());
+    }
+
+    @Test
+    public void given_different_payload_with_same_key_when_trigger_aspect_then_throw_payload_conflict_exception() throws NoSuchAlgorithmException {
+        //given
+        String sameIdempotencyKey = "same-key-123";
+        
+        IdempotentTestPayload firstPayload = new IdempotentTestPayload();
+        firstPayload.setName("first");
+        firstPayload.setEventId(123L);
+
+        IdempotentTestPayload secondPayload = new IdempotentTestPayload();
+        secondPayload.setName("second"); // Different name
+        secondPayload.setEventId(456L);   // Different eventId
+
+        // First call should succeed and store the payload
+        testIdempotentResource.idempotentMethodWithExplicitId(sameIdempotencyKey, firstPayload);
+
+        // Second call with different payload but same key should throw PayloadConflictException
+        assertThrows(PayloadConflictException.class, () -> 
+            testIdempotentResource.idempotentMethodWithExplicitId(sameIdempotencyKey, secondPayload)
+        );
+    }
+
+    @Test
+    public void given_same_payload_with_same_key_when_trigger_aspect_then_return_cached_response() throws NoSuchAlgorithmException {
+        //given
+        String idempotencyKey = "same-key-456";
+        
+        IdempotentTestPayload payload = new IdempotentTestPayload();
+        payload.setName("test");
+        payload.setEventId(456L);
+
+        // First call should succeed and store the payload
+        IdempotentTestPayload firstResult = testIdempotentResource.idempotentMethodWithExplicitId(idempotencyKey, payload);
+
+        // Second call with same payload and same key should return cached response without throwing exception
+        IdempotentTestPayload secondResult = testIdempotentResource.idempotentMethodWithExplicitId(idempotencyKey, payload);
+
+        // Both results should be the same (cached)
+        assertEquals(firstResult, secondResult);
+        assertEquals("test", secondResult.getName());
+    }
+
+    @Test
+    public void given_payload_with_idempotency_key_field_when_trigger_aspect_then_use_field_as_key() throws NoSuchAlgorithmException {
+        //given
+        String idempotencyKey = "field-key-789";
+        
+        TestPayloadWithKey firstPayload = new TestPayloadWithKey();
+        firstPayload.setName("first");
+        firstPayload.setIdempotencyKey(idempotencyKey);
+
+        TestPayloadWithKey secondPayload = new TestPayloadWithKey();
+        secondPayload.setName("second");
+        secondPayload.setIdempotencyKey(idempotencyKey);
+
+        // First call should succeed and store the payload
+        testIdempotentResource.idempotentMethodWithPayloadId(firstPayload);
+
+        // Second call with different payload but same idempotency key should throw PayloadConflictException
+        assertThrows(PayloadConflictException.class, () -> 
+            testIdempotentResource.idempotentMethodWithPayloadId(secondPayload)
+        );
     }
 }

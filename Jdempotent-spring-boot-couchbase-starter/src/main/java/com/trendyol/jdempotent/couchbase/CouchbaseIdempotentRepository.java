@@ -129,4 +129,11 @@ public class CouchbaseIdempotentRepository implements IdempotentRepository {
         }
         return requestResponseWrapper;
     }
+
+
+    @Override
+    public IdempotentRequestResponseWrapper getRequestResponseWrapper(IdempotencyKey key) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getRequestResponseWrapper'");
+    }
 }

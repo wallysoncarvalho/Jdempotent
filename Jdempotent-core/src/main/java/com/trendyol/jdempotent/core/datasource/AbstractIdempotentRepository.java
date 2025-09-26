@@ -25,6 +25,11 @@ public abstract class AbstractIdempotentRepository implements IdempotentReposito
     }
 
     @Override
+    public IdempotentRequestResponseWrapper getRequestResponseWrapper(IdempotencyKey key) {
+        return getMap().get(key);
+    }
+
+    @Override
     public void store(IdempotencyKey key, IdempotentRequestWrapper request) throws RequestAlreadyExistsException {
         IdempotentRequestResponseWrapper newWrapper = new IdempotentRequestResponseWrapper(request);
         IdempotentRequestResponseWrapper existing = getMap().putIfAbsent(key, newWrapper);

@@ -275,9 +275,20 @@
                     </dependencies>
                 
                     <configuration>
+                        <includes>
+                            <include>**/Test*.java</include>
+                            <include>**/*Test.java</include>
+                            <include>**/*Tests.java</include>
+                            <include>**/*TestCase.java</include>
+                            <include>**/*IT.java</include>
+                            <include>**/*UT.java</include>
+                        </includes>
+                        <!-- Enable console output to show logs during test execution -->
                         <consoleOutputReporter>
-                           <disable>true</disable>
+                           <disable>false</disable>
                         </consoleOutputReporter>
+                        <!-- Show stdout/stderr from tests -->
+                        <redirectTestOutputToFile>false</redirectTestOutputToFile>
                         <reportFormat>plain</reportFormat>
                         <statelessTestsetInfoReporter  implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoTreeReporterUnicode"/>
                      </configuration>

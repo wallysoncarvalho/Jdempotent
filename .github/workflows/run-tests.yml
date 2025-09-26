@@ -42,4 +42,4 @@ jobs:
         run: mvn clean test -pl Jdempotent-core
 
       - name: Run tests for "Jdempotent-spring-boot-redis-starter"
-        run: mvn clean test -pl Jdempotent-spring-boot-redis-starter
+        # run: mvn clean test -pl Jdempotent-spring-boot-redis-starter

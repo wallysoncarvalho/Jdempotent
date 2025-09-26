@@ -14,11 +14,22 @@ import org.springframework.context.annotation.Configuration;
         matchIfMissing = true)
 public class JdempotentPostgresProperties {
 
+    @Value("${jdempotent.postgres.tableName:jdempotent}")
+    private String tableName;
+
     @Value("${jdempotent.postgres.entityManagerBeanName:}")
     private String entityManagerBeanName;
 
     @Value("${jdempotent.cache.persistReqRes:true}")
     private Boolean persistReqRes;
+
+    public String getTableName() {
+        return tableName;
+    }
+
+    public void setTableName(String tableName) {
+        this.tableName = tableName;
+    }
 
     public String getEntityManagerBeanName() {
         return entityManagerBeanName;

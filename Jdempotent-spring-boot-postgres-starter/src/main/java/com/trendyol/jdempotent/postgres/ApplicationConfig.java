@@ -5,7 +5,6 @@ import com.trendyol.jdempotent.core.callback.ErrorConditionalCallback;
 import com.trendyol.jdempotent.core.generator.KeyGenerator;
 
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -24,9 +23,6 @@ public class ApplicationConfig {
     private final JdempotentPostgresProperties postgresProperties;
     private final ApplicationContext applicationContext;
 
-    @Value("${jdempotent.postgres.tableName:jdempotent}")
-    private String tableName;
-
     public ApplicationConfig(JdempotentPostgresProperties postgresProperties, ApplicationContext applicationContext) {
         this.postgresProperties = postgresProperties;
         this.applicationContext = applicationContext;
@@ -41,7 +37,7 @@ public class ApplicationConfig {
     @ConditionalOnBean(ErrorConditionalCallback.class)
     public IdempotentAspect getIdempotentAspect(ErrorConditionalCallback errorConditionalCallback) {
         EntityManager entityManager = resolveEntityManager();
-        return new IdempotentAspect(new PostgresIdempotentRepository(entityManager, postgresProperties, tableName),
+        return new IdempotentAspect(new PostgresIdempotentRepository(entityManager, postgresProperties, postgresProperties.getTableName()),
                 errorConditionalCallback);
     }
 
@@ -52,7 +48,7 @@ public class ApplicationConfig {
     @ConditionalOnMissingBean({ IdempotentAspect.class, KeyGenerator.class })
     public IdempotentAspect defaultGetIdempotentAspect() {
         EntityManager entityManager = resolveEntityManager();
-        return new IdempotentAspect(new PostgresIdempotentRepository(entityManager, postgresProperties, tableName));
+        return new IdempotentAspect(new PostgresIdempotentRepository(entityManager, postgresProperties, postgresProperties.getTableName()));
     }
 
     /**

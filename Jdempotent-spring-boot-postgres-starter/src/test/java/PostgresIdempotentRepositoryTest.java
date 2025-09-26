@@ -36,14 +36,14 @@ class PostgresIdempotentRepositoryTest {
 
     private JdempotentPostgresProperties properties;
     private PostgresIdempotentRepository repository;
-    private String tableName = "jdempotent";
 
     @BeforeEach
     void setUp() {
         properties = new JdempotentPostgresProperties();
+        properties.setTableName("jdempotent");
         properties.setPersistReqRes(true);
 
-        repository = new PostgresIdempotentRepository(entityManager, properties, tableName);
+        repository = new PostgresIdempotentRepository(entityManager, properties, properties.getTableName());
     }
 
     @Test
@@ -201,7 +201,7 @@ class PostgresIdempotentRepositoryTest {
     void testStore_WithPersistReqResFalse_DoesNotStoreRequestData() throws RequestAlreadyExistsException {
         // Given
         properties.setPersistReqRes(false);
-        repository = new PostgresIdempotentRepository(entityManager, properties, tableName);
+        repository = new PostgresIdempotentRepository(entityManager, properties, properties.getTableName());
         
         IdempotencyKey key = new IdempotencyKey("test-key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper("test-request");

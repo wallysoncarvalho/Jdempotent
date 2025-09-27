@@ -1,13 +1,24 @@
-package com.trendyol.jdempotent.postgres;
+package jdempotent.postgres;
 
-import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
-import com.trendyol.jdempotent.core.model.IdempotencyKey;
-import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
-import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
-import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Persistence;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -17,20 +28,17 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.io.Serializable;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
+import com.trendyol.jdempotent.core.model.IdempotencyKey;
+import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
+import com.trendyol.jdempotent.postgres.JdempotentPostgresProperties;
+import com.trendyol.jdempotent.postgres.PostgresIdempotentRepository;
 
-import static org.junit.jupiter.api.Assertions.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Persistence;
 
 @Testcontainers
 class PostgresIdempotentRepositoryIT {

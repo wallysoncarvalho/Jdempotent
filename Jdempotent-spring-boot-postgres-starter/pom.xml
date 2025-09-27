@@ -300,6 +300,11 @@
                         </consoleOutputReporter>
                         <reportFormat>plain</reportFormat>
                         <statelessTestsetInfoReporter  implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoTreeReporterUnicode"/>
+                        <!-- Reduce Maven logging during tests -->
+                        <trimStackTrace>false</trimStackTrace>
+                        <useSystemClassLoader>false</useSystemClassLoader>
+                        <printSummary>true</printSummary>
+                        <redirectTestOutputToFile>false</redirectTestOutputToFile>
                      </configuration>
 
                 </plugin>

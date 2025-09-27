@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -228,7 +229,51 @@ class PostgresIdempotentRepositoryTest {
         repository.store(key, request, 3600L, TimeUnit.SECONDS);
 
         // Then
-        verify(query).setParameter(2, null);
+        verify(query).setParameter(eq(3), eq(null)); // Updated parameter index due to cache_prefix column
+    }
+
+    @Test
+    void testStore_WithCachePrefix_StoresCachePrefixCorrectly() throws RequestAlreadyExistsException {
+        // Given
+        IdempotencyKey key = new IdempotencyKey("test-key");
+        IdempotentRequestWrapper request = new IdempotentRequestWrapper("test-request");
+        String cachePrefix = "user-service";
+        
+        when(entityManager.createNativeQuery(anyString())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
+        when(entityManager.getTransaction()).thenReturn(transaction);
+        when(query.executeUpdate()).thenReturn(1);
+
+        // When
+        repository.store(key, request, cachePrefix, 3600L, TimeUnit.SECONDS);
+
+        // Then
+        verify(entityManager).createNativeQuery(contains("cache_prefix"));
+        verify(query).setParameter(eq(1), eq("test-key")); // idempotency_key
+        verify(query).setParameter(eq(2), eq(cachePrefix)); // cache_prefix
+        verify(query).setParameter(eq(3), any(byte[].class)); // request_data
+        verify(query).setParameter(eq(4), any(java.sql.Timestamp.class)); // expires_at
+        verify(transaction).begin();
+        verify(query).executeUpdate();
+        verify(transaction).commit();
+    }
+
+    @Test
+    void testStore_WithNullCachePrefix_StoresNullCachePrefix() throws RequestAlreadyExistsException {
+        // Given
+        IdempotencyKey key = new IdempotencyKey("test-key");
+        IdempotentRequestWrapper request = new IdempotentRequestWrapper("test-request");
+        
+        when(entityManager.createNativeQuery(anyString())).thenReturn(query);
+        when(query.setParameter(anyInt(), any())).thenReturn(query);
+        when(entityManager.getTransaction()).thenReturn(transaction);
+        when(query.executeUpdate()).thenReturn(1);
+
+        // When
+        repository.store(key, request, null, 3600L, TimeUnit.SECONDS);
+
+        // Then
+        verify(query).setParameter(eq(2), eq(null)); // cache_prefix should be null
     }
 
     /**

@@ -59,7 +59,15 @@ public class RedisIdempotentRepository implements IdempotentRepository {
 
     @Override
     public void store(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
+        store(idempotencyKey, request, null, ttl, timeUnit);
+    }
+
+    @Override
+    public void store(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request, String cachePrefix, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
         ttl = ttl == 0 ? redisProperties.getExpirationTimeHour() : ttl;
+        
+        // For Redis, we store the cache prefix as part of the value since Redis is key-value based
+        // The cache prefix is mainly for PostgreSQL where we can store it as a separate column
         Boolean set = valueOperations.setIfAbsent(
                 idempotencyKey.getKeyValue(),
                 prepareValue(request),

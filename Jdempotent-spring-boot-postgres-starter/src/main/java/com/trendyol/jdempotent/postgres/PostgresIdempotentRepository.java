@@ -121,6 +121,11 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
 
     @Override
     public void store(IdempotencyKey key, IdempotentRequestWrapper requestObject, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
+        store(key, requestObject, null, ttl, timeUnit);
+    }
+
+    @Override
+    public void store(IdempotencyKey key, IdempotentRequestWrapper requestObject, String cachePrefix, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
         try {
             byte[] requestData = null;
             if (postgresProperties.getPersistReqRes() && requestObject != null && requestObject.getRequest() != null) {
@@ -136,13 +141,14 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
             // Use INSERT ... ON CONFLICT to handle concurrency safely
             // If the key already exists, we'll get 0 rows affected and throw RequestAlreadyExistsException
             String sql = "INSERT INTO " + postgresProperties.getTableName() + 
-                " (idempotency_key, request_data, response_data, expires_at) VALUES (?1, ?2, NULL, ?3)" +
+                " (idempotency_key, cache_prefix, request_data, response_data, expires_at) VALUES (?1, ?2, ?3, NULL, ?4)" +
                 " ON CONFLICT (idempotency_key) DO NOTHING";
 
             Query query = entityManager.createNativeQuery(sql);
             query.setParameter(1, key.getKeyValue());
-            query.setParameter(2, requestData);
-            query.setParameter(3, expiresAt != null ? java.sql.Timestamp.from(expiresAt) : null);
+            query.setParameter(2, cachePrefix);
+            query.setParameter(3, requestData);
+            query.setParameter(4, expiresAt != null ? java.sql.Timestamp.from(expiresAt) : null);
 
             entityManager.getTransaction().begin();
             int rowsAffected = query.executeUpdate();

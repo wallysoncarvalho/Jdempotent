@@ -67,6 +67,7 @@ class PostgresIdempotentRepositoryIT {
             statement.execute("""
                 CREATE TABLE IF NOT EXISTS jdempotent (
                     idempotency_key VARCHAR(255) PRIMARY KEY,
+                    cache_prefix VARCHAR(255),
                     request_data BYTEA,
                     response_data BYTEA,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -491,6 +492,89 @@ class PostgresIdempotentRepositoryIT {
             assertEquals(1, deletedCount); // One expired record should be deleted
             assertFalse(repository.contains(expiredKey)); // Expired key should be gone
             assertTrue(repository.contains(validKey)); // Valid key should remain
+        }
+    }
+
+    @Test
+    void testStore_WithCachePrefix_StoresCachePrefixCorrectly() throws Exception {
+        // Given
+        IdempotencyKey key = new IdempotencyKey("cache-prefix-key");
+        TestData requestData = new TestData("cache-prefix-request");
+        IdempotentRequestWrapper request = new IdempotentRequestWrapper(requestData);
+        String cachePrefix = "user-service";
+
+        // When
+        repository.store(key, request, cachePrefix, 3600L, TimeUnit.SECONDS);
+
+        // Then
+        assertTrue(repository.contains(key));
+
+        // Verify cache prefix is stored by checking the database directly
+        try (Connection conn = DriverManager.getConnection(
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Statement stmt = conn.createStatement()) {
+            
+            String sql = "SELECT cache_prefix FROM " + properties.getTableName() + 
+                        " WHERE idempotency_key = '" + key.getKeyValue() + "'";
+            var rs = stmt.executeQuery(sql);
+            
+            assertTrue(rs.next(), "Record should exist in database");
+            assertEquals(cachePrefix, rs.getString("cache_prefix"), "Cache prefix should be stored correctly");
+        }
+    }
+
+    @Test
+    void testStore_WithNullCachePrefix_StoresNullCachePrefix() throws Exception {
+        // Given
+        IdempotencyKey key = new IdempotencyKey("null-cache-prefix-key");
+        TestData requestData = new TestData("null-cache-prefix-request");
+        IdempotentRequestWrapper request = new IdempotentRequestWrapper(requestData);
+
+        // When
+        repository.store(key, request, null, 3600L, TimeUnit.SECONDS);
+
+        // Then
+        assertTrue(repository.contains(key));
+
+        // Verify cache prefix is null by checking the database directly
+        try (Connection conn = DriverManager.getConnection(
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Statement stmt = conn.createStatement()) {
+            
+            String sql = "SELECT cache_prefix FROM " + properties.getTableName() + 
+                        " WHERE idempotency_key = '" + key.getKeyValue() + "'";
+            var rs = stmt.executeQuery(sql);
+            
+            assertTrue(rs.next(), "Record should exist in database");
+            assertNull(rs.getString("cache_prefix"), "Cache prefix should be null");
+        }
+    }
+
+    @Test
+    void testStore_WithEmptyCachePrefix_StoresEmptyCachePrefix() throws Exception {
+        // Given
+        IdempotencyKey key = new IdempotencyKey("empty-cache-prefix-key");
+        TestData requestData = new TestData("empty-cache-prefix-request");
+        IdempotentRequestWrapper request = new IdempotentRequestWrapper(requestData);
+        String cachePrefix = "";
+
+        // When
+        repository.store(key, request, cachePrefix, 3600L, TimeUnit.SECONDS);
+
+        // Then
+        assertTrue(repository.contains(key));
+
+        // Verify empty cache prefix is stored by checking the database directly
+        try (Connection conn = DriverManager.getConnection(
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Statement stmt = conn.createStatement()) {
+            
+            String sql = "SELECT cache_prefix FROM " + properties.getTableName() + 
+                        " WHERE idempotency_key = '" + key.getKeyValue() + "'";
+            var rs = stmt.executeQuery(sql);
+            
+            assertTrue(rs.next(), "Record should exist in database");
+            assertEquals("", rs.getString("cache_prefix"), "Cache prefix should be empty string");
         }
     }
 }

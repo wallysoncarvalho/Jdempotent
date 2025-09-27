@@ -50,6 +50,17 @@ public interface IdempotentRepository {
      */
     void store(IdempotencyKey key, IdempotentRequestWrapper requestObject,Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException;
 
+    /**
+     * Store request with cache prefix and TTL
+     *
+     * @param key
+     * @param requestObject
+     * @param cachePrefix
+     * @param ttl
+     * @param timeUnit
+     */
+    void store(IdempotencyKey key, IdempotentRequestWrapper requestObject, String cachePrefix, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException;
+
 
     /**
      * @param key

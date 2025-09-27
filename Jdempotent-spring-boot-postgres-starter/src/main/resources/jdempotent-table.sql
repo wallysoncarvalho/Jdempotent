@@ -3,6 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS jdempotent (
     idempotency_key VARCHAR(255) PRIMARY KEY,
+    cache_prefix VARCHAR(255),
     request_data BYTEA,
     response_data BYTEA,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -87,8 +87,7 @@ class PostgresIdempotentRepositoryTest {
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(entityManager.getTransaction()).thenReturn(transaction);
-        // Mock contains() to return false (key doesn't exist)
-        when(query.getSingleResult()).thenReturn(0);
+        // Mock executeUpdate to return 1 (one row affected - successful insert)
         when(query.executeUpdate()).thenReturn(1);
 
         // When
@@ -108,8 +107,9 @@ class PostgresIdempotentRepositoryTest {
         
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter(anyInt(), any())).thenReturn(query);
-        // Mock contains() to return true (key exists)
-        when(query.getSingleResult()).thenReturn(1);
+        when(entityManager.getTransaction()).thenReturn(transaction);
+        // Mock executeUpdate to return 0 (no rows affected - key already exists)
+        when(query.executeUpdate()).thenReturn(0);
 
         // When & Then
         assertThrows(RequestAlreadyExistsException.class, () -> {
@@ -213,7 +213,6 @@ class PostgresIdempotentRepositoryTest {
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter(anyInt(), any())).thenReturn(query);
         when(entityManager.getTransaction()).thenReturn(transaction);
-        when(query.getSingleResult()).thenReturn(0);
         when(query.executeUpdate()).thenReturn(1);
 
         // When

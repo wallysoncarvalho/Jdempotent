@@ -1,6 +1,5 @@
 package com.trendyol.jdempotent.postgres;
 
-import java.io.*;
 import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
 import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
@@ -14,6 +13,11 @@ import jakarta.persistence.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
@@ -118,11 +122,6 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
     @Override
     public void store(IdempotencyKey key, IdempotentRequestWrapper requestObject, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
         try {
-            // Check if key already exists
-            if (contains(key)) {
-                throw new RequestAlreadyExistsException();
-            }
-
             byte[] requestData = null;
             if (postgresProperties.getPersistReqRes() && requestObject != null && requestObject.getRequest() != null) {
                 requestData = serializeToBytes(requestObject.getRequest());
@@ -134,7 +133,11 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
                 expiresAt = Instant.now().plusSeconds(ttlSeconds);
             }
 
-            String sql = "INSERT INTO " + postgresProperties.getTableName() + " (idempotency_key, request_data, response_data, expires_at) VALUES (?1, ?2, NULL, ?3)";
+            // Use INSERT ... ON CONFLICT to handle concurrency safely
+            // If the key already exists, we'll get 0 rows affected and throw RequestAlreadyExistsException
+            String sql = "INSERT INTO " + postgresProperties.getTableName() + 
+                " (idempotency_key, request_data, response_data, expires_at) VALUES (?1, ?2, NULL, ?3)" +
+                " ON CONFLICT (idempotency_key) DO NOTHING";
 
             Query query = entityManager.createNativeQuery(sql);
             query.setParameter(1, key.getKeyValue());
@@ -142,10 +145,18 @@ public class PostgresIdempotentRepository implements IdempotentRepository {
             query.setParameter(3, expiresAt != null ? java.sql.Timestamp.from(expiresAt) : null);
 
             entityManager.getTransaction().begin();
-            query.executeUpdate();
+            int rowsAffected = query.executeUpdate();
             entityManager.getTransaction().commit();
 
+            // If no rows were inserted, it means the key already exists
+            if (rowsAffected == 0) {
+                throw new RequestAlreadyExistsException();
+            }
+
         } catch (RequestAlreadyExistsException e) {
+            if (entityManager.getTransaction().isActive()) {
+                entityManager.getTransaction().rollback();
+            }
             throw e;
         } catch (Exception e) {
             if (entityManager.getTransaction().isActive()) {

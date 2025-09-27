@@ -24,7 +24,11 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -385,6 +389,100 @@ class PostgresIdempotentRepositoryIntegrationTest {
             assertFalse(repository.contains(expiredKey)); // Expired key should be gone
             assertTrue(repository.contains(validKey)); // Valid key should remain
         }
+    }
+
+    @Test
+    void testStore_ConcurrentRequests_OnlyOneSucceeds() throws Exception {
+        // Given
+        IdempotencyKey key = new IdempotencyKey("concurrent-key");
+        TestData requestData1 = new TestData("concurrent-request-1");
+        TestData requestData2 = new TestData("concurrent-request-2");
+        
+        IdempotentRequestWrapper request1 = new IdempotentRequestWrapper(requestData1);
+        IdempotentRequestWrapper request2 = new IdempotentRequestWrapper(requestData2);
+        
+        // When - simulate concurrent requests using threads
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch readyLatch = new CountDownLatch(2);
+        CountDownLatch completeLatch = new CountDownLatch(2);
+        
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger exceptionCount = new AtomicInteger(0);
+        
+        // Create two competing tasks
+        Runnable task1 = () -> {
+            try {
+                readyLatch.countDown(); // Signal this thread is ready
+                startLatch.await(); // Wait for both threads to be ready
+                repository.store(key, request1);
+                successCount.incrementAndGet();
+            } catch (RequestAlreadyExistsException e) {
+                exceptionCount.incrementAndGet();
+            } catch (Exception e) {
+                // Unexpected exception
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            } finally {
+                completeLatch.countDown();
+            }
+        };
+        
+        Runnable task2 = () -> {
+            try {
+                readyLatch.countDown(); // Signal this thread is ready
+                startLatch.await(); // Wait for both threads to be ready
+                repository.store(key, request2);
+                successCount.incrementAndGet();
+            } catch (RequestAlreadyExistsException e) {
+                exceptionCount.incrementAndGet();
+            } catch (Exception e) {
+                // Unexpected exception
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            } finally {
+                completeLatch.countDown();
+            }
+        };
+        
+        // Submit both tasks
+        executor.submit(task1);
+        executor.submit(task2);
+        
+        // Wait for both threads to be ready
+        boolean ready = readyLatch.await(2, TimeUnit.SECONDS);
+        assertTrue(ready, "Both threads should be ready within 2 seconds");
+        
+        // Start both threads simultaneously
+        startLatch.countDown();
+        
+        // Wait for both to complete
+        boolean completed = completeLatch.await(5, TimeUnit.SECONDS);
+        assertTrue(completed, "Both threads should complete within 5 seconds");
+        
+        executor.shutdown();
+        
+        // Then - exactly one should succeed, one should get RequestAlreadyExistsException
+        System.out.println("Success count: " + successCount.get() + ", Exception count: " + exceptionCount.get());
+        assertEquals(2, successCount.get() + exceptionCount.get(), "Total operations should be 2");
+        assertEquals(1, successCount.get(), "Exactly one request should succeed");
+        assertEquals(1, exceptionCount.get(), "Exactly one request should get RequestAlreadyExistsException");
+        
+        // Verify the key exists in the database
+        assertTrue(repository.contains(key), "The key should exist in the database");
+        
+        // Verify we can retrieve the stored data
+        IdempotentRequestResponseWrapper wrapper = repository.getRequestResponseWrapper(key);
+        assertNotNull(wrapper);
+        assertNotNull(wrapper.getRequest());
+        
+        // The stored data should be from one of the requests
+        TestData storedData = (TestData) wrapper.getRequest().getRequest();
+        assertTrue(
+            requestData1.getValue().equals(storedData.getValue()) || 
+            requestData2.getValue().equals(storedData.getValue()),
+            "Stored data should match one of the concurrent requests"
+        );
     }
 
     /**

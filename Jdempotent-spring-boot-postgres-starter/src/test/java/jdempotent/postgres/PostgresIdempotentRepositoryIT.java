@@ -50,7 +50,7 @@ class PostgresIdempotentRepositoryIT {
             .withPassword("test");
 
     private static EntityManagerFactory entityManagerFactory;
-    private EntityManager entityManager;
+    private static EntityManager entityManager;
     private PostgresIdempotentRepository repository;
     private JdempotentPostgresProperties properties;
 
@@ -104,10 +104,16 @@ class PostgresIdempotentRepositoryIT {
         props.put("hibernate.show_sql", "false");
 
         entityManagerFactory = Persistence.createEntityManagerFactory("test-unit", props);
+        
+        // Create shared EntityManager for all tests
+        entityManager = entityManagerFactory.createEntityManager();
     }
 
     @AfterAll
     static void tearDown() {
+        if (entityManager != null) {
+            entityManager.close();
+        }
         if (entityManagerFactory != null) {
             entityManagerFactory.close();
         }
@@ -116,7 +122,10 @@ class PostgresIdempotentRepositoryIT {
 
     @BeforeEach
     void setUp() {
-        entityManager = entityManagerFactory.createEntityManager();
+        // Ensure no active transaction from previous test (safety check)
+        if (entityManager.getTransaction().isActive()) {
+            entityManager.getTransaction().rollback();
+        }
         
         properties = new JdempotentPostgresProperties();
         properties.setTableName("jdempotent");
@@ -130,9 +139,12 @@ class PostgresIdempotentRepositoryIT {
 
     @AfterEach
     void tearDownEach() {
-        if (entityManager != null) {
-            cleanupTable();
-            entityManager.close();
+        // Clean up data for test isolation
+        cleanupTable();
+        
+        // Ensure no active transaction (safety check)
+        if (entityManager.getTransaction().isActive()) {
+            entityManager.getTransaction().rollback();
         }
     }
 

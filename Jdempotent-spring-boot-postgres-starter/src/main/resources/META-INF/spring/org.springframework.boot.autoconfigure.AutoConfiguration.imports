@@ -1,0 +1,2 @@
+com.trendyol.jdempotent.postgres.ApplicationConfig
+com.trendyol.jdempotent.postgres.JdempotentPostgresProperties

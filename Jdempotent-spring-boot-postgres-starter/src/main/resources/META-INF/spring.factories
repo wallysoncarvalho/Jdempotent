@@ -1,3 +1,0 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.trendyol.jdempotent.postgres.ApplicationConfig,\
-com.trendyol.jdempotent.postgres.JdempotentPostgresProperties

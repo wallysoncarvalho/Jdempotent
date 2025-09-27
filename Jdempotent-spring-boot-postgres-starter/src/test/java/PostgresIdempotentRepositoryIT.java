@@ -472,7 +472,6 @@ class PostgresIdempotentRepositoryIT {
         assertFalse(repository.contains(key));
     }
 
-
     @Test
     void testCleanupExpiredRecords_RemovesExpiredEntries() throws Exception {
         // Given - store entries with different expiration times

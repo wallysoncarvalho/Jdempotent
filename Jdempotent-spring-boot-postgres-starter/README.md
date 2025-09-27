@@ -7,7 +7,8 @@ This module provides PostgreSQL integration for the Jdempotent library, allowing
 - PostgreSQL-based idempotent request/response storage
 - Configurable table name (default: `jdempotent`)
 - TTL (Time To Live) support via `@JdempotentResource` annotation
-- Support for multiple EntityManager beans
+- Cache prefix support via `@JdempotentResource` annotations
+- Support for multiple `EntityManager` beans
 - Byte array serialization of request/response data for efficiency
 - Spring Boot auto-configuration
 
@@ -32,13 +33,25 @@ Execute the SQL script provided in `src/main/resources/jdempotent-table.sql` to 
 ```sql
 CREATE TABLE IF NOT EXISTS jdempotent (
     idempotency_key VARCHAR(255) PRIMARY KEY,
-    request_data TEXT,
-    response_data TEXT,
+    cache_prefix VARCHAR(255),
+    request_data BYTEA,
+    response_data BYTEA,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_jdempotent_expires_at ON jdempotent(expires_at);
+
+CREATE OR REPLACE FUNCTION cleanup_expired_jdempotent_records()
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    DELETE FROM jdempotent WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP;
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
 ### 3. Configuration
@@ -63,30 +76,30 @@ jdempotent.cache.persistReqRes=true
 |----------|-------------|---------------|
 | `jdempotent.enable` | Enable/disable Jdempotent | `true` |
 | `jdempotent.postgres.tableName` | Database table name | `jdempotent` |
-| `jdempotent.postgres.entityManagerBeanName` | Specific EntityManager bean name (optional) | `` |
-| `jdempotent.cache.persistReqRes` | Whether to persist request/response data | `true` |
+| `jdempotent.postgres.entityManagerBeanName` | Specific `EntityManager` bean name (optional) | `` |
+| `jdempotent.cache.persistReqRes` | Whether to persist request/response data as byte arrays | `true` |
 
-**Note**: TTL (Time To Live) is now configured via the `@JdempotentResource` annotation's `ttl` and `ttlTimeUnit` properties, not through configuration files.
+**Note**: TTL and cache prefix are configured per method via the `@JdempotentResource` annotation's `ttl`, `ttlTimeUnit`, and `cachePrefix` properties, not through configuration files.
 
 ## Multiple EntityManager Support
 
-If your application uses multiple databases and has multiple EntityManager beans, you can specify which one to use:
+If your application uses multiple databases and has multiple `EntityManager` beans, you can specify which one to use:
 
 ```properties
 jdempotent.postgres.entityManagerBeanName=myCustomEntityManager
 ```
 
-If not specified, the default EntityManager bean will be used.
+If not specified, the default `EntityManager` bean will be used.
 
 ## Usage
 
-Once configured, you can use the `@JdempotentResource` annotation on your methods with TTL configuration:
+Once configured, you can use the `@JdempotentResource` annotation on your methods with TTL and cache prefix configuration:
 
 ```java
 @Service
 public class MyService {
     
-    @JdempotentResource(ttl = 30, ttlTimeUnit = TimeUnit.MINUTES)
+    @JdempotentResource(ttl = 30, ttlTimeUnit = TimeUnit.MINUTES, cachePrefix = "process")
     public String processRequest(String requestId, String data) {
         // Your business logic here
         return "processed: " + data;
@@ -96,7 +109,7 @@ public class MyService {
 
 ## TTL and Cleanup
 
-The PostgreSQL starter supports automatic expiration of idempotent records through the `expires_at` column. TTL is now configured per method using the `@JdempotentResource` annotation:
+The PostgreSQL starter supports automatic expiration of idempotent records through the `expires_at` column. TTL is configured per method using the `@JdempotentResource` annotation:
 
 ```java
 @JdempotentResource(ttl = 1, ttlTimeUnit = TimeUnit.HOURS)
@@ -118,6 +131,7 @@ Consider setting up a scheduled job to run this cleanup function periodically.
 The table structure is designed to store:
 
 - `idempotency_key`: The unique key for the idempotent operation (Primary Key)
+- `cache_prefix`: An optional prefix to namespace cache entries
 - `request_data`: Byte array serialized request data (BYTEA, optional, based on `persistReqRes` setting)
 - `response_data`: Byte array serialized response data (BYTEA, optional, based on `persistReqRes` setting)
 - `created_at`: Timestamp when the record was created
@@ -129,7 +143,7 @@ The PostgreSQL starter uses byte array serialization instead of JSON for several
 - **Efficiency**: More compact storage and faster serialization/deserialization
 - **No Encoding Issues**: Avoids character encoding problems
 - **Type Safety**: Preserves exact object types during serialization
-- **Performance**: Better database performance with BYTEA columns
+- **Performance**: Better database performance with `BYTEA` columns
 
 ## License
 

@@ -1,20 +1,21 @@
 package com.trendyol.jdempotent.couchbase;
 
-import com.couchbase.client.java.Collection;
-import com.couchbase.client.java.kv.GetOptions;
-import com.couchbase.client.java.kv.GetResult;
-import com.couchbase.client.java.kv.UpsertOptions;
-import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
-import com.trendyol.jdempotent.core.model.IdempotencyKey;
-import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
-import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
-import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
-
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+
+import com.couchbase.client.java.Collection;
+import com.couchbase.client.java.kv.GetOptions;
+import com.couchbase.client.java.kv.GetResult;
+import com.couchbase.client.java.kv.UpsertOptions;
+import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
+import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
+import com.trendyol.jdempotent.core.model.IdempotencyKey;
+import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
+import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
 
 /**
  * An implementation of the idempotent IdempotentRepository
@@ -135,5 +136,13 @@ public class CouchbaseIdempotentRepository implements IdempotentRepository {
     public IdempotentRequestResponseWrapper getRequestResponseWrapper(IdempotencyKey key) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'getRequestResponseWrapper'");
+    }
+
+
+    @Override
+    public void store(IdempotencyKey key, IdempotentRequestWrapper requestObject,
+            String cachePrefix, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'store'");
     }
 }

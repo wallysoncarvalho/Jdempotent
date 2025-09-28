@@ -86,7 +86,7 @@ class PostgresIdempotentRepositoryIT {
         properties = new JdempotentPostgresProperties();
         properties.setTableName("jdempotent");
         properties.setPersistReqRes(true);
-        repository = new PostgresIdempotentRepository(entityManager, properties);
+        repository = new PostgresIdempotentRepository(entityManagerFactory, properties);
         cleanupTable(entityManager);
     }
 
@@ -224,7 +224,7 @@ class PostgresIdempotentRepositoryIT {
     @Test
     void testPersistReqRes_WhenFalse_DoesNotStoreData() throws RequestAlreadyExistsException {
         properties.setPersistReqRes(false);
-        repository = new PostgresIdempotentRepository(entityManager, properties);
+        repository = new PostgresIdempotentRepository(entityManagerFactory, properties);
 
         IdempotencyKey key = new IdempotencyKey("no-persist-key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(new TestData("no-persist-request"));
@@ -361,10 +361,9 @@ class PostgresIdempotentRepositoryIT {
                                         CountDownLatch completeLatch,
                                         AtomicInteger successCount,
                                         AtomicInteger exceptionCount) {
-            // Each concurrent task uses its own EntityManager and repository because EntityManager instances
-            // are not thread-safe. Creating them on demand ensures transactions are isolated per thread.
-            EntityManager em = entityManagerFactory.createEntityManager();
-            PostgresIdempotentRepository repo = new PostgresIdempotentRepository(em, copyProperties());
+            // Each concurrent task uses its own repository with the shared EntityManagerFactory.
+            // The repository will create EntityManager instances as needed for thread safety.
+            PostgresIdempotentRepository repo = new PostgresIdempotentRepository(entityManagerFactory, copyProperties());
             try {
                 readyLatch.countDown();
                 startLatch.await();
@@ -375,14 +374,7 @@ class PostgresIdempotentRepositoryIT {
             } catch (Exception e) {
                 exceptionCount.incrementAndGet();
             } finally {
-                try {
-                    if (em.getTransaction().isActive()) {
-                        em.getTransaction().rollback();
-                    }
-                } finally {
-                    em.close();
-                    completeLatch.countDown();
-                }
+                completeLatch.countDown();
             }
         }
 

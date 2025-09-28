@@ -77,7 +77,7 @@ jdempotent.cache.persistReqRes=true
 | `jdempotent.enable` | Enable/disable Jdempotent | `true` |
 | `jdempotent.postgres.tableName` | Database table name | `jdempotent` |
 | `jdempotent.postgres.entityManagerBeanName` | Specific `EntityManager` bean name (optional) | `` |
-| `jdempotent.cache.persistReqRes` | Whether to persist request/response data as byte arrays | `true` |
+| `jdempotent.cache.persistReqRes` | Whether to persist request/response data as byte arrays ⚠️ **Requires Serializable classes** | `true` |
 
 **Note**: TTL and cache prefix are configured per method via the `@JdempotentResource` annotation's `ttl`, `ttlTimeUnit`, and `cachePrefix` properties, not through configuration files.
 
@@ -100,12 +100,19 @@ Once configured, you can use the `@JdempotentResource` annotation on your method
 public class MyService {
     
     @JdempotentResource(ttl = 30, ttlTimeUnit = TimeUnit.MINUTES, cachePrefix = "process")
-    public String processRequest(String requestId, String data) {
+    public ResponsePayload processRequest(@JdempotentRequestPayload RequestPayload payload) {
         // Your business logic here
-        return "processed: " + data;
+        return new ResponsePayload("processed: " + payload.data());
     }
 }
+
+// Request and response classes must implement Serializable when persistReqRes=true
+public record RequestPayload(@JdempotentId String requestId, String data) implements java.io.Serializable {}
+
+public record ResponsePayload(String result) implements java.io.Serializable {}
 ```
+
+> **⚠️ Important**: When using the default setting `jdempotent.cache.persistReqRes=true`, all request payload and response classes must implement `java.io.Serializable`. See the [Serializable Requirement](#serializable-requirement) section for more details.
 
 ## TTL and Cleanup
 
@@ -144,6 +151,24 @@ The PostgreSQL starter uses byte array serialization instead of JSON for several
 - **No Encoding Issues**: Avoids character encoding problems
 - **Type Safety**: Preserves exact object types during serialization
 - **Performance**: Better database performance with `BYTEA` columns
+
+### Serializable Requirement
+
+**Important**: When `jdempotent.cache.persistReqRes=true` (default), all request payload and response classes must implement `java.io.Serializable`. This is required for the byte array serialization to work properly.
+
+```java
+// ✅ Correct - implements Serializable
+public record RequestPayload(String id, String data) implements java.io.Serializable {}
+
+public record ResponsePayload(String result) implements java.io.Serializable {}
+
+// ❌ Incorrect - will cause NotSerializableException
+public record RequestPayload(String id, String data) {}
+```
+
+If you cannot make your classes implement `Serializable`, you have two options:
+1. **Disable persistence**: Set `jdempotent.cache.persistReqRes=false` (only idempotency keys will be stored)
+2. **Use simple types**: Use primitive types or built-in Serializable classes like `String`, `Integer`, etc.
 
 ## License
 

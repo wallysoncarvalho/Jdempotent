@@ -25,6 +25,18 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            core:
+              - 'Jdempotent-core/**'
+            postgres:
+              - 'Jdempotent-spring-boot-postgres-starter/**'
+            redis:
+              - 'Jdempotent-spring-boot-redis-starter/**'
+
       - name: Set up JDK ${{ matrix.java-version }}
         uses: actions/setup-java@v4
         with:
@@ -39,13 +51,17 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Build and install Jdempotent-core to local repository
+        if: steps.changes.outputs.core == 'true' || steps.changes.outputs.postgres == 'true' || steps.changes.outputs.redis == 'true'
         run: mvn clean install -pl Jdempotent-core -DskipTests
 
       - name: Run tests for "Jdempotent-core"
+        if: steps.changes.outputs.core == 'true'
         run: mvn test -pl Jdempotent-core
 
       - name: Run tests for "Jdempotent-spring-boot-redis-starter"
+        if: steps.changes.outputs.redis == 'true' || steps.changes.outputs.core == 'true'
         run: mvn test -pl Jdempotent-spring-boot-redis-starter
 
       - name: Run tests for "Jdempotent-spring-boot-postgres-starter"
+        if: steps.changes.outputs.postgres == 'true' || steps.changes.outputs.core == 'true'
         run: mvn test -pl Jdempotent-spring-boot-postgres-starter

@@ -26,16 +26,38 @@ jobs:
           fetch-depth: 0
 
       - name: Check for changes
-        uses: dorny/paths-filter@v3
         id: changes
-        with:
-          filters: |
-            core:
-              - 'Jdempotent-core/**'
-            postgres:
-              - 'Jdempotent-spring-boot-postgres-starter/**'
-            redis:
-              - 'Jdempotent-spring-boot-redis-starter/**'
+        run: |
+          # Determine base and head commits
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+          
+          echo "Comparing changes between $BASE_SHA and $HEAD_SHA"
+          
+          # Get list of changed files
+          CHANGED_FILES=$(git diff --name-only $BASE_SHA..$HEAD_SHA)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Check for changes in each directory
+          CORE_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^Jdempotent-core/' | wc -l)
+          POSTGRES_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^Jdempotent-spring-boot-postgres-starter/' | wc -l)
+          REDIS_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^Jdempotent-spring-boot-redis-starter/' | wc -l)
+          
+          # Set outputs
+          echo "core=$([ $CORE_CHANGES -gt 0 ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "postgres=$([ $POSTGRES_CHANGES -gt 0 ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "redis=$([ $REDIS_CHANGES -gt 0 ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          
+          # Debug output
+          echo "Core changes: $([ $CORE_CHANGES -gt 0 ] && echo 'true' || echo 'false') ($CORE_CHANGES files)"
+          echo "Postgres changes: $([ $POSTGRES_CHANGES -gt 0 ] && echo 'true' || echo 'false') ($POSTGRES_CHANGES files)"
+          echo "Redis changes: $([ $REDIS_CHANGES -gt 0 ] && echo 'true' || echo 'false') ($REDIS_CHANGES files)"
 
       - name: Set up JDK ${{ matrix.java-version }}
         uses: actions/setup-java@v4

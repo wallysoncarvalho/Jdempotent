@@ -10,24 +10,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
@@ -37,82 +31,28 @@ import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
 import com.trendyol.jdempotent.postgres.JdempotentPostgresProperties;
 import com.trendyol.jdempotent.postgres.PostgresIdempotentRepository;
 
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Persistence;
+import jdempotent.postgres.config.TestPostgresConfig;
+import jdempotent.postgres.support.AbstractPostgresStarterIntegrationTest;
 
-@Testcontainers
-class PostgresIdempotentRepositoryIT {
+@SpringBootTest(classes = {TestPostgresConfig.class})
+class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationTest {
 
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("jdempotent_test")
-            .withUsername("test")
-            .withPassword("test")
-            .withInitScript("jdempotent-table.sql");
-
-    private static EntityManagerFactory entityManagerFactory;
-
-    private EntityManager entityManager;
-    private JdempotentPostgresProperties properties;
+    @Autowired
     private PostgresIdempotentRepository repository;
 
-    @BeforeAll
-    static void setUpDatabase() throws Exception {
-        postgres.start();
+    @Autowired
+    private JdempotentPostgresProperties properties;
 
-        Map<String, String> props = new HashMap<>();
-        props.put("jakarta.persistence.jdbc.driver", "org.postgresql.Driver");
-        props.put("jakarta.persistence.jdbc.url", postgres.getJdbcUrl());
-        props.put("jakarta.persistence.jdbc.user", postgres.getUsername());
-        props.put("jakarta.persistence.jdbc.password", postgres.getPassword());
-        props.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
-        props.put("hibernate.hbm2ddl.auto", "validate");
-
-        entityManagerFactory = Persistence.createEntityManagerFactory("test-unit", props);
-    }
-
-    @AfterAll
-    static void tearDown() {
-        if (entityManagerFactory != null) {
-            entityManagerFactory.close();
-        }
-        postgres.stop();
-    }
-
-    @BeforeEach
-    void setUp() {
-        entityManager = entityManagerFactory.createEntityManager();
-        properties = new JdempotentPostgresProperties();
-        properties.setTableName("jdempotent");
-        properties.setPersistReqRes(true);
-        repository = new PostgresIdempotentRepository(entityManagerFactory, properties);
-        cleanupTable(entityManager);
-    }
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @AfterEach
-    void tearDownEach() {
-        if (entityManager != null) {
-            try {
-                if (entityManager.getTransaction().isActive()) {
-                    entityManager.getTransaction().rollback();
-                }
-            } finally {
-                entityManager.close();
-            }
-        }
-    }
-
-    private void cleanupTable(EntityManager em) {
-        try {
-            em.getTransaction().begin();
-            em.createNativeQuery("DELETE FROM jdempotent").executeUpdate();
-            em.getTransaction().commit();
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) {
-                em.getTransaction().rollback();
-            }
-        }
+    void resetProperties() {
+        // Reset properties to default values after each test to prevent test interference
+        properties.setPersistReqRes(true);
+        // Recreate repository with reset properties if it was modified
+        repository = new PostgresIdempotentRepository(entityManagerFactory, properties);
     }
 
     @Test
@@ -297,7 +237,7 @@ class PostgresIdempotentRepositoryIT {
 
         Thread.sleep(1100);
 
-        try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+        try (Connection conn = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
              Statement statement = conn.createStatement()) {
             var result = statement.executeQuery("SELECT cleanup_expired_jdempotent_records()");
             result.next();

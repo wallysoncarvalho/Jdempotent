@@ -1,4 +1,4 @@
-package jdempotent.postgres;
+package jdempotent.postgres.support;
 
 import java.io.Serializable;
 

@@ -34,6 +34,7 @@ import com.trendyol.jdempotent.postgres.PostgresIdempotentRepository;
 import jakarta.persistence.EntityManagerFactory;
 import jdempotent.postgres.config.TestPostgresConfig;
 import jdempotent.postgres.support.AbstractPostgresStarterIntegrationTest;
+import jdempotent.postgres.support.TestData;
 
 @SpringBootTest(classes = {TestPostgresConfig.class})
 class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationTest {

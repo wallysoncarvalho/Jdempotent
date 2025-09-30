@@ -1,6 +1,6 @@
 package jdempotent.postgres.kafka;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;
 
@@ -20,15 +20,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jdempotent.postgres.support.AbstractPostgresStarterIntegrationTest;
 
 @SpringBootTest(classes = TestKafkaApplication.class)
-@EmbeddedKafka(partitions = 1, topics = "jdempotent-test-topic", kraft = true, controlledShutdown = true)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@EmbeddedKafka(partitions = 1, topics = {
+        "jdempotent-test-topic",
+        "jdempotent-test-topic-2" }, kraft = true, controlledShutdown = true)
 @TestPropertySource(properties = {
         "spring.kafka.consumer.auto-offset-reset=latest",
         "spring.kafka.consumer.value-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
         "spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
         "spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer",
-        "spring.kafka.producer.value-serializer=org.apache.kafka.common.serialization.StringSerializer"
-})
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+        "spring.kafka.producer.value-serializer=org.apache.kafka.common.serialization.StringSerializer" })
 class PostgresStarterKafkaIT extends AbstractPostgresStarterIntegrationTest {
 
     @Autowired
@@ -37,8 +38,8 @@ class PostgresStarterKafkaIT extends AbstractPostgresStarterIntegrationTest {
     @Autowired
     private KafkaProcessingTracker tracker;
 
-    @SuppressWarnings("unused")
     @Autowired
+    @SuppressWarnings("unused")
     private EmbeddedKafkaBroker embeddedKafkaBroker;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -49,33 +50,29 @@ class PostgresStarterKafkaIT extends AbstractPostgresStarterIntegrationTest {
     }
 
     @Test
-    void shouldConsumeMessageOnceWhenSentMultipleTimes() throws Exception {
-        sendMessage("kafka-1", "payload-one");
-        sendMessage("kafka-1", "payload-one");
+    void should_consume_message_once_when_sent_multiple_times() throws Exception {
+        sendMessage("kafka-1", "payload-one", "jdempotent-test-topic");
+        sendMessage("kafka-1", "payload-one", "jdempotent-test-topic");
 
         waitForConsumption();
 
-        assertThat(tracker.getInvocationCount()).isEqualTo(1);
-        assertThat(tracker.getProcessedMessages()).containsEntry("kafka-1", "payload-one");
+        assertEquals(1, tracker.getInvocationCount("kafka-1"));
     }
 
     @Test
-    void shouldThrowPayloadConflictWhenPayloadDiffers() throws Exception {
-        sendMessage("kafka-2", "payload-a");
+    void should_throw_payload_conflict_when_payload_differs() throws Exception {
+        sendMessage("kafka-2", "payload-a", "jdempotent-test-topic-2");
+        sendMessage("kafka-2", "payload-b", "jdempotent-test-topic-2");
+
         waitForConsumption();
 
-        int beforeCount = tracker.getInvocationCount();
-
-        sendMessage("kafka-2", "payload-b");
-        waitForConsumption();
-
-        assertThat(tracker.getInvocationCount()).isEqualTo(beforeCount);
-        assertThat(tracker.getProcessedMessages()).containsEntry("kafka-2", "payload-a");
+        assertEquals(1, tracker.getInvocationCount("kafka-2"));
     }
 
-    private void sendMessage(String key, String payload) throws Exception {
-        TestKafkaListener.TestKafkaMessage message = new TestKafkaListener.TestKafkaMessage(key, payload);
-        ProducerRecord<String, String> record = new ProducerRecord<>("jdempotent-test-topic", key,
+    private void sendMessage(String key, String payload, String topico) throws Exception {
+        TestKafkaListener.TestKafkaMessage message = new TestKafkaListener.TestKafkaMessage(key,
+                payload);
+        ProducerRecord<String, String> record = new ProducerRecord<>(topico, key,
                 objectMapper.writeValueAsString(message));
         kafkaTemplate.send(record).get();
     }

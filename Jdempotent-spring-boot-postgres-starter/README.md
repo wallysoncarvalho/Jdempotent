@@ -125,13 +125,157 @@ public String myMethod() {
 }
 ```
 
-You can use the provided cleanup function to remove expired records:
+### Batch Cleanup Function
+
+The provided cleanup function removes expired records in configurable batches and supports concurrent execution:
 
 ```sql
+-- Delete up to 1000 expired records (default batch size)
 SELECT cleanup_expired_jdempotent_records();
+
+-- Delete up to 100 expired records
+SELECT cleanup_expired_jdempotent_records(100);
+
+-- Delete up to 5000 expired records
+SELECT cleanup_expired_jdempotent_records(5000);
 ```
 
-Consider setting up a scheduled job to run this cleanup function periodically.
+### Concurrent-Safe Design
+
+The cleanup function uses `SELECT FOR UPDATE SKIP LOCKED` to enable multiple cleanup processes to run concurrently without blocking each other:
+
+- **Multiple processes can run simultaneously**: Each process will work on different sets of expired records
+- **No blocking**: Processes skip records that are already being processed by other transactions
+- **Batch processing**: Limits the number of records processed per call to prevent long-running operations
+
+## Scheduled Cleanup
+
+The PostgreSQL starter includes built-in support for scheduled cleanup of expired records. This feature automatically removes expired idempotent data at configurable intervals.
+
+### Enabling Scheduled Cleanup
+
+To enable scheduled cleanup, add the following to your `application.properties`:
+
+```properties
+# Enable scheduled cleanup (disabled by default)
+jdempotent.postgres.scheduler.enabled=true
+
+# Configure batch size (default: 1000)
+jdempotent.postgres.scheduler.batchSize=1000
+```
+
+### Scheduling Options
+
+You can configure the cleanup schedule using one of three approaches:
+
+#### 1. Fixed Delay Scheduling
+Ensures a specific delay between cleanup executions:
+
+```properties
+# Run cleanup every 5 minutes after previous execution completes
+jdempotent.postgres.scheduler.fixedDelay=300000
+jdempotent.postgres.scheduler.initialDelay=60000
+```
+
+#### 2. Fixed Rate Scheduling
+Schedules cleanup at regular intervals:
+
+```properties
+# Run cleanup every hour
+jdempotent.postgres.scheduler.fixedRate=3600000
+jdempotent.postgres.scheduler.initialDelay=60000
+```
+
+#### 3. Cron Expression Scheduling
+Provides the most flexible scheduling using cron expressions:
+
+```properties
+# Run every day at 2:00 AM
+jdempotent.postgres.scheduler.cron=0 0 2 * * ?
+jdempotent.postgres.scheduler.zone=UTC
+
+# Run every 30 minutes
+jdempotent.postgres.scheduler.cron=0 */30 * * * ?
+
+# Run every Sunday at midnight
+jdempotent.postgres.scheduler.cron=0 0 0 * * SUN
+```
+
+### Configuration Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `jdempotent.postgres.scheduler.enabled` | `false` | Enable/disable scheduled cleanup |
+| `jdempotent.postgres.scheduler.batchSize` | `1000` | Number of records to delete per batch |
+| `jdempotent.postgres.scheduler.fixedDelay` | - | Delay between executions (milliseconds) |
+| `jdempotent.postgres.scheduler.fixedRate` | - | Interval between executions (milliseconds) |
+| `jdempotent.postgres.scheduler.initialDelay` | `60000` | Initial delay before first execution (milliseconds) |
+| `jdempotent.postgres.scheduler.cron` | - | Cron expression for scheduling |
+| `jdempotent.postgres.scheduler.zone` | `UTC` | Time zone for cron expression |
+
+### Manual Cleanup
+
+You can also trigger cleanup operations manually by injecting the cleanup service:
+
+```java
+@Autowired
+private JdempotentPostgresCleanupService cleanupService;
+
+public void performManualCleanup() {
+    int deletedRecords = cleanupService.manualCleanup();
+    logger.info("Manually deleted {} expired records", deletedRecords);
+}
+```
+
+### Monitoring and Logging
+
+The cleanup service provides comprehensive logging:
+
+- **INFO level**: Successful cleanup operations with record counts
+- **DEBUG level**: Detailed execution information
+- **ERROR level**: Cleanup failures with full stack traces
+
+Enable debug logging for detailed cleanup information:
+
+```properties
+logging.level.com.trendyol.jdempotent.postgres.JdempotentPostgresCleanupService=DEBUG
+```
+
+### Best Practices
+
+1. **Batch Size**: Use smaller batches (100-500) for high-concurrency environments, larger batches (1000-5000) for better efficiency in low-concurrency scenarios
+2. **Scheduling**: Use off-peak hours for cleanup operations to minimize impact on application performance
+3. **Monitoring**: Monitor cleanup execution times and database performance after enabling scheduled cleanup
+4. **Testing**: Always test cleanup configuration in non-production environments first
+- **Oldest first**: Processes expired records in order of expiration time
+
+### Complete Cleanup Example
+
+For complete cleanup in batches (useful for scheduled jobs):
+
+```sql
+DO $$
+DECLARE
+    deleted INTEGER;
+    total_deleted INTEGER := 0;
+BEGIN
+    LOOP
+        SELECT cleanup_expired_jdempotent_records(1000) INTO deleted;
+        total_deleted := total_deleted + deleted;
+        EXIT WHEN deleted = 0;
+        RAISE NOTICE 'Batch completed: % records deleted (total: %)', deleted, total_deleted;
+    END LOOP;
+    RAISE NOTICE 'Cleanup completed: % total records deleted', total_deleted;
+END $$;
+```
+
+### Scheduling Cleanup
+
+Consider setting up a scheduled job to run this cleanup function periodically:
+
+- **pg_cron extension**: Schedule directly in PostgreSQL
+- **Application scheduler**: Use Spring's `@Scheduled` annotation
+- **External cron job**: Call the function from external scripts
 
 ## Table Schema
 

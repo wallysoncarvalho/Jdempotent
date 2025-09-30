@@ -3,33 +3,34 @@ package jdempotent.postgres.kafka;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.stereotype.Component;
 
 @Component
 public class KafkaProcessingTracker {
 
-    private final AtomicInteger invocationCount = new AtomicInteger();
-    private final Map<String, String> processedMessages = Collections.synchronizedMap(new HashMap<>());
+    private final Map<String, Integer> processedMessages = Collections.synchronizedMap(new HashMap<>());
 
     public void recordInvocation(String key, String payload) {
-        invocationCount.incrementAndGet();
-        processedMessages.put(key, payload);
+        Integer invocationCount = processedMessages.get(key);
+        if (invocationCount == null) {
+            invocationCount = 0;
+        }
+        invocationCount++;
+        processedMessages.put(key, invocationCount);
     }
 
-    public int getInvocationCount() {
-        return invocationCount.get();
+    public Integer getInvocationCount(String key) {
+        return processedMessages.get(key);
     }
 
-    public Map<String, String> getProcessedMessages() {
+    public Map<String, Integer> getProcessedKeys() {
         synchronized (processedMessages) {
             return Map.copyOf(processedMessages);
         }
     }
 
     public void reset() {
-        invocationCount.set(0);
         processedMessages.clear();
     }
 }

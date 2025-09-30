@@ -1,2 +1,3 @@
 com.trendyol.jdempotent.postgres.ApplicationConfig
 com.trendyol.jdempotent.postgres.JdempotentPostgresProperties
+com.trendyol.jdempotent.postgres.JdempotentPostgresSchedulerAutoConfiguration

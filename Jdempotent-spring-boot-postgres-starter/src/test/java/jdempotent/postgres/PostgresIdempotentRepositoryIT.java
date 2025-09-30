@@ -57,7 +57,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testStore_WhenKeyDoesNotExist_StoresSuccessfully() throws RequestAlreadyExistsException {
+    void test_store_when_key_does_not_exist_stores_successfully() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("test-key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(new TestData("test-request"));
 
@@ -67,7 +67,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testStore_WhenKeyExists_ThrowsException() throws RequestAlreadyExistsException {
+    void test_store_when_key_exists_throws_exception() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("duplicate-key");
         repository.store(key, new IdempotentRequestWrapper(new TestData("request-1")));
 
@@ -76,7 +76,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testContains_WhenKeyExists_ReturnsTrue() throws RequestAlreadyExistsException {
+    void test_contains_when_key_exists_returns_true() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("existing-key");
         repository.store(key, new IdempotentRequestWrapper(new TestData("test-request")));
 
@@ -84,12 +84,12 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testContains_WhenKeyDoesNotExist_ReturnsFalse() {
+    void test_contains_when_key_does_not_exist_returns_false() {
         assertFalse(repository.contains(new IdempotencyKey("non-existing-key")));
     }
 
     @Test
-    void testGetResponse_WhenResponseExists_ReturnsResponse() throws RequestAlreadyExistsException {
+    void test_get_response_when_response_exists_returns_response() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("response-key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(new TestData("test-request"));
         IdempotentResponseWrapper response = new IdempotentResponseWrapper(new TestData("test-response"));
@@ -104,7 +104,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testGetResponse_WhenResponseDoesNotExist_ReturnsNull() throws RequestAlreadyExistsException {
+    void test_get_response_when_response_does_not_exist_returns_null() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("no-response-key");
         repository.store(key, new IdempotentRequestWrapper(new TestData("test-request")));
 
@@ -112,7 +112,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testGetRequestResponseWrapper_WhenDataExists_ReturnsWrapper() throws RequestAlreadyExistsException {
+    void test_get_request_response_wrapper_when_data_exists_returns_wrapper() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("wrapper-key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(new TestData("test-request"));
         IdempotentResponseWrapper response = new IdempotentResponseWrapper(new TestData("test-response"));
@@ -130,7 +130,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testSetResponse_WhenKeyExists_UpdatesResponse() throws RequestAlreadyExistsException {
+    void test_set_response_when_key_exists_updates_response() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("update-response-key");
         IdempotentRequestWrapper request = new IdempotentRequestWrapper(new TestData("test-request"));
         repository.store(key, request);
@@ -143,7 +143,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testRemove_RemovesKeySuccessfully() throws RequestAlreadyExistsException {
+    void test_remove_removes_key_successfully() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("remove-key");
         repository.store(key, new IdempotentRequestWrapper(new TestData("test-request")));
 
@@ -153,7 +153,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testStore_WithTTL_ExpiresCorrectly() throws Exception {
+    void test_store_with_ttl_expires_correctly() throws Exception {
         IdempotencyKey key = new IdempotencyKey("ttl-key");
         repository.store(key, new IdempotentRequestWrapper(new TestData("ttl-request")), 1L, TimeUnit.SECONDS);
 
@@ -163,7 +163,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testPersistReqRes_WhenFalse_DoesNotStoreData() throws RequestAlreadyExistsException {
+    void test_persist_req_res_when_false_does_not_store_data() throws RequestAlreadyExistsException {
         properties.setPersistReqRes(false);
         repository = new PostgresIdempotentRepository(entityManagerFactory, properties);
 
@@ -181,7 +181,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testGetResponse_WhenResponseExists_ReturnsResponseAgain() throws RequestAlreadyExistsException {
+    void test_get_response_when_response_exists_returns_response_again() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("response-key-2");
         TestData requestData = new TestData("request-data-2");
         TestData responseData = new TestData("response-data-2");
@@ -199,7 +199,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testGetResponse_WhenResponseDoesNotExist_ReturnsNullAgain() {
+    void test_get_response_when_response_does_not_exist_returns_null_again() {
         IdempotencyKey key = new IdempotencyKey("no-response-key-2");
 
         IdempotentResponseWrapper result = repository.getResponse(key);
@@ -208,7 +208,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testGetRequestResponseWrapper_WhenDataExists_ReturnsWrapperAgain() throws RequestAlreadyExistsException {
+    void test_get_request_response_wrapper_when_data_exists_returns_wrapper_again() throws RequestAlreadyExistsException {
         IdempotencyKey key = new IdempotencyKey("wrapper-key-2");
         TestData requestData = new TestData("wrapper-request-2");
         TestData responseData = new TestData("wrapper-response-2");
@@ -229,7 +229,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     }
 
     @Test
-    void testCleanupExpiredRecords_RemovesExpiredEntries() throws Exception {
+    void test_cleanup_expired_records_removes_expired_entries() throws Exception {
         IdempotencyKey expiredKey = new IdempotencyKey("expired-key");
         IdempotencyKey validKey = new IdempotencyKey("valid-key");
 
@@ -240,7 +240,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
 
         try (Connection conn = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
              Statement statement = conn.createStatement()) {
-            var result = statement.executeQuery("SELECT cleanup_expired_jdempotent_records()");
+            var result = statement.executeQuery("SELECT cleanup_expired_jdempotent_records(100)");
             result.next();
             int deletedCount = result.getInt(1);
 
@@ -255,7 +255,7 @@ class PostgresIdempotentRepositoryIT extends AbstractPostgresStarterIntegrationT
     class ConcurrencyScenarios {
         
         @Test
-        void testStore_ConcurrentRequests_OnlyOneSucceeds() throws Exception {
+        void test_store_concurrent_requests_only_one_succeeds() throws Exception {
             IdempotencyKey key = new IdempotencyKey("concurrent-key");
             IdempotentRequestWrapper request1 = new IdempotentRequestWrapper(new TestData("concurrent-request-1"));
             IdempotentRequestWrapper request2 = new IdempotentRequestWrapper(new TestData("concurrent-request-2"));

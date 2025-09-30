@@ -14,9 +14,7 @@ public class JdempotentCronScheduler {
 
     private final JdempotentPostgresCleanupService cleanupService;
 
-    public JdempotentCronScheduler(
-            JdempotentPostgresCleanupService cleanupService,
-            JdempotentPostgresProperties postgresProperties) {
+    public JdempotentCronScheduler(JdempotentPostgresCleanupService cleanupService) {
         this.cleanupService = cleanupService;
     }
 

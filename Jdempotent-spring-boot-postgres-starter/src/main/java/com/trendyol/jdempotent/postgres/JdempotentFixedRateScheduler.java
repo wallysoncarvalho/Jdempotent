@@ -14,9 +14,7 @@ public class JdempotentFixedRateScheduler {
 
     private final JdempotentPostgresCleanupService cleanupService;
 
-    public JdempotentFixedRateScheduler(
-            JdempotentPostgresCleanupService cleanupService,
-            JdempotentPostgresProperties postgresProperties) {
+    public JdempotentFixedRateScheduler(JdempotentPostgresCleanupService cleanupService) {
         this.cleanupService = cleanupService;
     }
 

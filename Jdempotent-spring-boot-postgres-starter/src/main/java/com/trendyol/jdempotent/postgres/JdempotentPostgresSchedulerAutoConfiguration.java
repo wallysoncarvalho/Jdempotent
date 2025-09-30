@@ -138,7 +138,7 @@ public class JdempotentPostgresSchedulerAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "jdempotent.postgres.scheduler.type", havingValue = "FIXED_RATE")
     public JdempotentFixedRateScheduler jdempotentFixedRateScheduler(JdempotentPostgresCleanupService cleanupService) {
-        return new JdempotentFixedRateScheduler(cleanupService, postgresProperties);
+        return new JdempotentFixedRateScheduler(cleanupService);
     }
 
     /**
@@ -148,7 +148,7 @@ public class JdempotentPostgresSchedulerAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "jdempotent.postgres.scheduler.type", havingValue = "CRON")
     public JdempotentCronScheduler jdempotentCronScheduler(JdempotentPostgresCleanupService cleanupService) {
-        return new JdempotentCronScheduler(cleanupService, postgresProperties);
+        return new JdempotentCronScheduler(cleanupService);
     }
 
     /**

@@ -54,7 +54,7 @@ class PostgresStarterHttpIT extends AbstractPostgresStarterIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(MockMvcResultMatchers.content().json(expectedResponse));
 
-        assertEquals(1, tracker.getInvocationCount());
+        assertEquals(1, tracker.getInvocationCount("http-123"));
     }
 
     @Test
@@ -82,6 +82,97 @@ class PostgresStarterHttpIT extends AbstractPostgresStarterIntegrationTest {
         assertEquals(com.trendyol.jdempotent.core.datasource.PayloadConflictException.class, 
             cause != null ? cause.getClass() : null);
 
-        assertEquals(1, tracker.getInvocationCount());
+        assertEquals(1, tracker.getInvocationCount("http-456"));
+    }
+
+    @Test
+    void should_track_multiple_different_keys() throws Exception {
+        // Test multiple different idempotency keys
+        TestHttpController.RequestPayload payload1 = new TestHttpController.RequestPayload("multi-1", "data-1");
+        TestHttpController.RequestPayload payload2 = new TestHttpController.RequestPayload("multi-2", "data-2");
+        TestHttpController.RequestPayload payload3 = new TestHttpController.RequestPayload("multi-3", "data-3");
+
+        // Process each payload
+        mockMvc.perform(post("/process")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload1)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/process")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload2)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/process")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload3)))
+                .andExpect(status().isOk());
+
+        // Each key should have been invoked once
+        assertEquals(1, tracker.getInvocationCount("multi-1"));
+        assertEquals(1, tracker.getInvocationCount("multi-2"));
+        assertEquals(1, tracker.getInvocationCount("multi-3"));
+        assertEquals(3, tracker.getTotalInvocationCount());
+    }
+
+    @Test
+    void should_handle_error_endpoint_without_caching_exceptions() throws Exception {
+        TestHttpController.RequestPayload payload = new TestHttpController.RequestPayload("error-123", "error-data");
+
+        // First call should throw exception
+        assertThrows(Exception.class, () -> 
+            mockMvc.perform(post("/process-error")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(payload))));
+
+        // Second call with same payload should also throw exception and invoke method again
+        // because exceptions are not cached - the key is removed when an exception occurs
+        assertThrows(Exception.class, () -> 
+            mockMvc.perform(post("/process-error")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(payload))));
+
+        // Should be invoked twice because exceptions are not cached
+        assertEquals(2, tracker.getInvocationCount("error-123"));
+    }
+
+    @Test
+    void should_process_with_key_header_idempotently() throws Exception {
+        String idempotencyKey = "header-key-123";
+        TestHttpController.RequestPayload payload = new TestHttpController.RequestPayload("key-123", "key-data");
+        String expectedResponse = "{\"idempotencyKey\":\"header-key-123\",\"result\":\"processed-key-data\"}";
+
+        // First call with idempotency key in header
+        mockMvc.perform(post("/process-with-key")
+                .header("x-idempotency-key", idempotencyKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(MockMvcResultMatchers.content().json(expectedResponse));
+
+        // Second call with same header key and payload should return cached response
+        mockMvc.perform(post("/process-with-key")
+                .header("x-idempotency-key", idempotencyKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(MockMvcResultMatchers.content().json(expectedResponse));
+
+        // Should only be invoked once due to idempotency (using payload key for tracking)
+        assertEquals(1, tracker.getInvocationCount(idempotencyKey));
+    }
+
+    @Test
+    void should_handle_missing_idempotency_header() throws Exception {
+        TestHttpController.RequestPayload payload = new TestHttpController.RequestPayload("key-789", "key-data");
+
+        // Call without x-idempotency-key header should fail
+        mockMvc.perform(post("/process-with-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().is4xxClientError());
+
+        // Should not be invoked at all
+        assertEquals(0, tracker.getInvocationCount("key-789"));
     }
 }

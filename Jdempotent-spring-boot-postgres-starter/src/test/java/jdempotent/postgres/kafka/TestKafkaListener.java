@@ -2,6 +2,9 @@ package jdempotent.postgres.kafka;
 
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -13,6 +16,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trendyol.jdempotent.core.annotation.JdempotentId;
 import com.trendyol.jdempotent.core.annotation.JdempotentRequestPayload;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
+
+import jdempotent.postgres.config.TestKafkaConsumerConfig;
+import jdempotent.postgres.config.TestKafkaProducerConfig;
 
 @Component
 public class TestKafkaListener {
@@ -44,4 +50,12 @@ public class TestKafkaListener {
             implements java.io.Serializable {}
 
     public record TestKafkaMessagePayload(String payload) implements java.io.Serializable {}
+}
+
+@SpringBootApplication
+@Import({TestKafkaConsumerConfig.class, TestKafkaProducerConfig.class})
+class TestKafkaApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(TestKafkaApplication.class, args);
+    }
 }

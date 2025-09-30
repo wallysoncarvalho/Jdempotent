@@ -3,6 +3,8 @@ package jdempotent.postgres.http;
 import java.io.Serializable;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,4 +32,11 @@ public class TestHttpController {
     public record RequestPayload(@JdempotentId String idempotencyKey, String data) implements Serializable{}
 
     public record ResponsePayload(String idempotencyKey, String result) implements Serializable{}
+}
+
+@SpringBootApplication
+class TestHttpApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(TestHttpApplication.class, args);
+    }
 }

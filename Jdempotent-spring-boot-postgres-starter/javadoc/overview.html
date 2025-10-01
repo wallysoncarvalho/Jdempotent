@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jdempotent PostgreSQL Starter</title>
+</head>
+<body>
+<h1>Jdempotent PostgreSQL Starter</h1>
+<p>
+    This module provides PostgreSQL integration for the Jdempotent library, allowing idempotent operations
+    to be stored and retrieved from a PostgreSQL database.
+</p>
+
+<h2>Features</h2>
+<ul>
+    <li>PostgreSQL-based idempotent request/response storage</li>
+    <li>Configurable table name (default: jdempotent)</li>
+    <li>TTL (Time To Live) support for automatic cleanup</li>
+    <li>Support for multiple EntityManager beans</li>
+    <li>JSON serialization of request/response data</li>
+    <li>Spring Boot auto-configuration</li>
+</ul>
+
+<h2>Configuration Properties</h2>
+<ul>
+    <li><code>jdempotent.datasource.postgres.tableName</code> - Table name (default: jdempotent)</li>
+    <li><code>jdempotent.datasource.postgres.entityManagerBeanName</code> - Specific EntityManager bean name</li>
+    <li><code>jdempotent.datasource.postgres.expirationTimeSeconds</code> - Default TTL in seconds (default: 3600)</li>
+    <li><code>jdempotent.cache.persistReqRes</code> - Whether to persist request/response data (default: true)</li>
+</ul>
+
+<h2>Database Setup</h2>
+<p>
+    Use the provided SQL script <code>jdempotent-table.sql</code> to create the required table structure
+    in your PostgreSQL database.
+</p>
+</body>
+</html>

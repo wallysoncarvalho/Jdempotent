@@ -1,15 +1,16 @@
 package com.trendyol.jdempotent.redis;
 
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+
 import com.trendyol.jdempotent.core.datasource.IdempotentRepository;
 import com.trendyol.jdempotent.core.datasource.RequestAlreadyExistsException;
 import com.trendyol.jdempotent.core.model.IdempotencyKey;
 import com.trendyol.jdempotent.core.model.IdempotentRequestResponseWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentRequestWrapper;
 import com.trendyol.jdempotent.core.model.IdempotentResponseWrapper;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -59,7 +60,15 @@ public class RedisIdempotentRepository implements IdempotentRepository {
 
     @Override
     public void store(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
+        store(idempotencyKey, request, null, ttl, timeUnit);
+    }
+
+    @Override
+    public void store(IdempotencyKey idempotencyKey, IdempotentRequestWrapper request, String cachePrefix, Long ttl, TimeUnit timeUnit) throws RequestAlreadyExistsException {
         ttl = ttl == 0 ? redisProperties.getExpirationTimeHour() : ttl;
+        
+        // For Redis, we store the cache prefix as part of the value since Redis is key-value based
+        // The cache prefix is mainly for PostgreSQL where we can store it as a separate column
         Boolean set = valueOperations.setIfAbsent(
                 idempotencyKey.getKeyValue(),
                 prepareValue(request),

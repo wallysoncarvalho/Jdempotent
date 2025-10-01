@@ -16,9 +16,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 import com.trendyol.jdempotent.core.annotation.JdempotentId;
+import com.trendyol.jdempotent.core.annotation.JdempotentIdTarget;
 import com.trendyol.jdempotent.core.annotation.JdempotentRequestPayload;
 import com.trendyol.jdempotent.core.annotation.JdempotentResource;
-import com.trendyol.jdempotent.core.annotation.JdempotentIdTarget;
 import com.trendyol.jdempotent.core.callback.ErrorConditionalCallback;
 import com.trendyol.jdempotent.core.chain.AnnotationChain;
 import com.trendyol.jdempotent.core.chain.JdempotentDefaultChain;
@@ -175,32 +175,36 @@ public class IdempotentAspect {
             return response;
         }
 
-        logger.debug(classAndMethodName + "saved to cache with {}", idempotencyKey);
-
         setJdempotentId(pjp.getArgs(), idempotencyKey.getKeyValue());
 
         Object result;
+
         try {
             idempotentRepository.store(idempotencyKey, requestObject, customTtl, timeUnit);
+
+            logger.debug(classAndMethodName + "saved to cache with {}", idempotencyKey);
+
             result = pjp.proceed();
+
+            if (errorCallback != null && errorCallback.onErrorCondition(result)) {
+                idempotentRepository.remove(idempotencyKey);
+                throw errorCallback.onErrorCustomException();
+            }
+
+            idempotentRepository.setResponse(idempotencyKey, requestObject, new IdempotentResponseWrapper(result), customTtl, timeUnit);    
+
+            logger.debug(classAndMethodName + "saved response to cache with {}", idempotencyKey);
         } catch (RequestAlreadyExistsException e) {
             logger.debug("Request already exists with {}", idempotencyKey);
             throw e;
         }catch (Exception e) {
-            logger.debug(classAndMethodName + "deleted from cache with {} . Exception : {}", idempotencyKey, e);
             idempotentRepository.remove(idempotencyKey);
+            logger.debug(classAndMethodName + "deleted from cache with {} . Exception : {}", idempotencyKey, e);
             throw e;
         }
 
-        if (errorCallback != null && errorCallback.onErrorCondition(result)) {
-            idempotentRepository.remove(idempotencyKey);
-            throw errorCallback.onErrorCustomException();
-        }
-
-
-        idempotentRepository.setResponse(idempotencyKey, requestObject, new IdempotentResponseWrapper(result), customTtl, timeUnit);
-
         logger.debug(classAndMethodName + "ended for {}", requestObject);
+
         return result;
     }
 
